@@ -1,0 +1,6 @@
+{
+  "name": "VTV Freier Grund – Dienstagskick & Döner",
+  "description": "Live-Statistik-Tracker für die Hallenfußball-Runde in der Sporthalle des VTV Freier Grund: Spiele bis 10 Tore, Niederlagen-Quoten und Döner-Auswertung.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

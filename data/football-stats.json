@@ -1,0 +1,79 @@
+{
+  "players": [
+    {
+      "id": "p_1_max",
+      "name": "Max",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_2_jonas",
+      "name": "Jonas",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_3_felix",
+      "name": "Felix",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_4_lukas_henrichs",
+      "name": "Lukas Henrichs",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_5_basti",
+      "name": "Basti",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_6_elton",
+      "name": "Elton",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_7_lukas_heider",
+      "name": "Lukas Heider",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_8_nico",
+      "name": "Nico",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_9_sandro",
+      "name": "Sandro",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_10_stefan",
+      "name": "Stefan",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_11_tom",
+      "name": "Tom",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    },
+    {
+      "id": "p_12_robin",
+      "name": "Robin",
+      "active": true,
+      "createdAt": "2026-10-27T14:40:39.054Z"
+    }
+  ],
+  "matches": [],
+  "activeAttendeeIds": [],
+  "lastUpdated": "2026-10-27T14:40:39.054Z"
+}
