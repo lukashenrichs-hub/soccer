@@ -1,79 +1,17 @@
 {
   "players": [
-    {
-      "id": "p_1_max",
-      "name": "Max",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_2_jonas",
-      "name": "Jonas",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_3_felix",
-      "name": "Felix",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_4_lukas_henrichs",
-      "name": "Lukas Henrichs",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_5_basti",
-      "name": "Basti",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_6_elton",
-      "name": "Elton",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_7_lukas_heider",
-      "name": "Lukas Heider",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_8_nico",
-      "name": "Nico",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_9_sandro",
-      "name": "Sandro",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_10_stefan",
-      "name": "Stefan",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_11_tom",
-      "name": "Tom",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    },
-    {
-      "id": "p_12_robin",
-      "name": "Robin",
-      "active": true,
-      "createdAt": "2026-10-27T14:40:39.054Z"
-    }
+    { "id": "p_1_sandro", "name": "Sandro", "active": true, "matches": 78, "losses": 43, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_2_max", "name": "Max", "active": true, "matches": 69, "losses": 31, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_3_felix", "name": "Felix", "active": true, "matches": 65, "losses": 28, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_4_basti", "name": "Basti", "active": true, "matches": 67, "losses": 31, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_5_jonas", "name": "Jonas", "active": true, "matches": 60, "losses": 30, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_6_lukas", "name": "Lukas Henrichs", "active": true, "matches": 56, "losses": 33, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_7_nico", "name": "Nico", "active": true, "matches": 53, "losses": 25, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_8_stefan", "name": "Stefan", "active": true, "matches": 26, "losses": 9, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_9_elton", "name": "Elton", "active": true, "matches": 23, "losses": 12, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_10_tom", "name": "Tom", "active": true, "matches": 16, "losses": 9, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_11_heider", "name": "Lukas Heider", "active": true, "matches": 8, "losses": 5, "createdAt": "2026-10-27T14:40:39.000Z" },
+    { "id": "p_12_robin", "name": "Robin", "active": true, "matches": 4, "losses": 2, "createdAt": "2026-10-27T14:40:39.000Z" }
   ],
-  "matches": [],
-  "activeAttendeeIds": [],
-  "lastUpdated": "2026-10-27T14:40:39.054Z"
+  "matches": []
 }
