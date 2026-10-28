@@ -73,7 +73,36 @@
       "createdAt": "2026-10-27T14:40:39.054Z"
     }
   ],
-  "matches": [],
+  "matches": [
+    {
+      "id": "altbestand_historisch",
+      "date": "2026-10-26",
+      "winners": ["p_3_felix", "p_10_stefan", "p_6_elton", "p_7_lukas_heider", "p_12_robin"],
+      "losers": ["p_9_sandro", "p_1_max", "p_5_basti", "p_2_jonas", "p_4_lukas_henrichs", "p_8_nico", "p_11_tom"],
+      "note": "Historischer Zettel-Altbestand"
+    },
+    {
+      "id": "heute_spiel_1",
+      "date": "2026-10-27",
+      "winners": ["p_1_max", "p_5_basti", "p_2_jonas"],
+      "losers": ["p_9_sandro", "p_4_lukas_henrichs", "p_8_nico", "p_11_tom"],
+      "note": "Heutiges Spiel 1"
+    },
+    {
+      "id": "heute_spiel_2",
+      "date": "2026-10-27",
+      "winners": ["p_1_max", "p_5_basti", "p_2_jonas", "p_11_tom"],
+      "losers": ["p_9_sandro", "p_4_lukas_henrichs", "p_8_nico"],
+      "note": "Heutiges Spiel 2"
+    },
+    {
+      "id": "heute_spiel_3",
+      "date": "2026-10-27",
+      "winners": ["p_9_sandro", "p_8_nico", "p_11_tom"],
+      "losers": ["p_1_max", "p_5_basti", "p_2_jonas", "p_4_lukas_henrichs"],
+      "note": "Heutiges Spiel 3"
+    }
+  ],
   "activeAttendeeIds": [],
   "lastUpdated": "2026-10-27T14:40:39.054Z"
 }
