@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, ShieldAlert, X, RotateCcw, UserMinus, UserCheck, Flame } from 'lucide-react';
+import { Check, ShieldAlert, X, RotateCcw, UserMinus, UserCheck, Flame, Calendar } from 'lucide-react';
 import { Match, Player } from '../types';
 
 interface QuickMatchModalProps {
@@ -11,6 +11,7 @@ interface QuickMatchModalProps {
   onSaveMatch: (matchData: {
     participantIds: string[];
     loserIds: string[];
+    sessionDate?: string;
     note?: string;
   }) => Promise<any>;
   onEditMatch?: (
@@ -18,6 +19,7 @@ interface QuickMatchModalProps {
     matchData: {
       participantIds: string[];
       loserIds: string[];
+      sessionDate?: string;
       note?: string;
     }
   ) => Promise<any>;
@@ -39,6 +41,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   // Losers in this game
   const [losers, setLosers] = useState<string[]>([]);
   const [note, setNote] = useState('');
+  const [sessionDate, setSessionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevIsOpenRef = useRef(false);
@@ -50,6 +53,10 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
         setParticipants(matchToEdit.participantIds);
         setLosers(matchToEdit.loserIds);
         setNote(matchToEdit.note || '');
+        setSessionDate(
+          matchToEdit.sessionDate ||
+          new Date(matchToEdit.timestamp).toISOString().split('T')[0]
+        );
       } else {
         const initialParticipants =
           activeAttendeeIds.length >= 2
@@ -58,6 +65,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
         setParticipants(initialParticipants);
         setLosers([]);
         setNote('');
+        setSessionDate(new Date().toISOString().split('T')[0]);
       }
       setErrorMsg(null);
     }
@@ -133,12 +141,14 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
         await onEditMatch(matchToEdit.id, {
           participantIds: participants,
           loserIds: losers,
+          sessionDate,
           note: note.trim() || undefined,
         });
       } else {
         await onSaveMatch({
           participantIds: participants,
           loserIds: losers,
+          sessionDate,
           note: note.trim() || undefined,
         });
 
@@ -167,9 +177,11 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
         <div className="flex items-start justify-between pb-4 border-b border-slate-800 shrink-0">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-1">
-              <span className="bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded">
+              <span className="bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded font-mono">
                 VTV FREIER GRUND
               </span>
+              <span>·</span>
+              <span>DIENSTAGSKICK</span>
               <span>·</span>
               <span>BIS 10 TORE</span>
             </div>
@@ -199,6 +211,54 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
               <span>{errorMsg}</span>
             </div>
           )}
+
+          {/* Match Date Picker */}
+          <div className="p-3.5 bg-slate-800/80 border border-slate-700/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white block">Spieltag / Datum:</span>
+                <span className="text-[11px] text-slate-400">
+                  Auch nachträglich für vergangene Dienstage eintragbar
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="date"
+                value={sessionDate}
+                onChange={(e) => setSessionDate(e.target.value)}
+                className="px-3 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded-xl text-white font-mono focus:outline-none focus:border-emerald-500 min-h-[36px]"
+              />
+              <button
+                type="button"
+                onClick={() => setSessionDate(new Date().toISOString().split('T')[0])}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
+                  sessionDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                }`}
+              >
+                Heute
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  const day = d.getDay();
+                  const diff = (day >= 2 ? day - 2 : 7 - (2 - day));
+                  d.setDate(d.getDate() - (diff === 0 ? 7 : diff));
+                  setSessionDate(d.toISOString().split('T')[0]);
+                }}
+                className="px-2.5 py-1 text-[11px] font-medium bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition-colors"
+              >
+                Letzter Di.
+              </button>
+            </div>
+          </div>
 
           {/* Quick Counter Strip */}
           <div className="p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-2xl space-y-2">

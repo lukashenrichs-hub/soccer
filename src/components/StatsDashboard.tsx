@@ -8,13 +8,15 @@ import {
   Search, 
   ShieldCheck, 
   TrendingDown, 
-  Users,
-  X,
-  XCircle,
-  Zap,
-  Flame,
-  Swords,
-  ShieldAlert
+  Users, 
+  X, 
+  XCircle, 
+  Zap, 
+  Flame, 
+  Swords, 
+  ShieldAlert,
+  Trophy,
+  Calendar
 } from 'lucide-react';
 import { AppData, FilterOption, Match, PlayerStats, SortField, TeamModeFilter } from '../types';
 import { calculatePlayerStats, sortPlayerStats } from '../utils/stats';
@@ -28,7 +30,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
   data,
   onOpenNewMatch,
 }) => {
-  const [sortField, setSortField] = useState<SortField>('lossRatePersonal_asc');
+  // Default sort is fair Dienstagskick-Punkte (rewards activity, wins, underdog wins)
+  const [sortField, setSortField] = useState<SortField>('points_desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const [teamMode, setTeamMode] = useState<TeamModeFilter>('all');
   const [subFilter3v4, setSubFilter3v4] = useState<'all' | 'as3er' | 'as4er'>('all');
@@ -87,7 +90,23 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
     [rawStats]
   );
 
-  // Spotlight Cards Calculation based on format
+  // Overall points leader (Rank #1 in fair points table)
+  const pointsLeader = useMemo(() => {
+    if (playersWithGames.length === 0) return null;
+    return [...playersWithGames].sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.lossRatePersonal - b.lossRatePersonal;
+    })[0];
+  }, [playersWithGames]);
+
+  // Player with most total appearances (Fleißigster Spieler)
+  const mostGamesPlayer = useMemo(() => {
+    if (playersWithGames.length === 0) return null;
+    return [...playersWithGames].sort((a, b) => b.gamesPlayed - a.gamesPlayed)[0];
+  }, [playersWithGames]);
+
+  // Player with lowest personal loss rate
   const bestRatePlayer = useMemo(() => {
     if (playersWithGames.length === 0) return null;
     return [...playersWithGames].sort((a, b) => {
@@ -143,33 +162,14 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
     })[0];
   }, [playersWithGames]);
 
-  // In 3v4: Most Underdog Matches Played (Bravest player)
+  // In 3v4: Most Underdog Matches Played
   const mostUnderdogGames = useMemo(() => {
     const contenders = playersWithGames.filter((s) => s.stats3v4.as3er.games > 0);
     if (contenders.length === 0) return null;
     return [...contenders].sort((a, b) => b.stats3v4.as3er.games - a.stats3v4.as3er.games)[0];
   }, [playersWithGames]);
 
-  const fewestLossesPlayer = useMemo(() => {
-    if (playersWithGames.length === 0) return null;
-    return [...playersWithGames].sort((a, b) => {
-      if (teamMode === '3v3') {
-        if (a.stats3v3.losses !== b.stats3v3.losses) return a.stats3v3.losses - b.stats3v3.losses;
-        return b.stats3v3.games - a.stats3v3.games;
-      }
-      if (teamMode === '4v4') {
-        if (a.stats4v4.losses !== b.stats4v4.losses) return a.stats4v4.losses - b.stats4v4.losses;
-        return b.stats4v4.games - a.stats4v4.games;
-      }
-      if (teamMode === '3v4') {
-        if (a.stats3v4.overall.losses !== b.stats3v4.overall.losses) return a.stats3v4.overall.losses - b.stats3v4.overall.losses;
-        return b.stats3v4.overall.games - a.stats3v4.overall.games;
-      }
-      if (a.losses !== b.losses) return a.losses - b.losses;
-      return b.gamesPlayed - a.gamesPlayed;
-    })[0];
-  }, [playersWithGames, teamMode]);
-
+  // Absolute most losses (Pechvogel)
   const mostLossesPlayer = useMemo(() => {
     if (playersWithGames.length === 0) return null;
     return [...playersWithGames].sort((a, b) => {
@@ -187,28 +187,6 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
       }
       if (b.losses !== a.losses) return b.losses - a.losses;
       return b.lossRatePersonal - a.lossRatePersonal;
-    })[0];
-  }, [playersWithGames, teamMode]);
-
-  const highestRatePlayer = useMemo(() => {
-    if (playersWithGames.length === 0) return null;
-    return [...playersWithGames].sort((a, b) => {
-      if (teamMode === '3v3') {
-        if (b.stats3v3.lossRate !== a.stats3v3.lossRate) return b.stats3v3.lossRate - a.stats3v3.lossRate;
-        return b.stats3v3.losses - a.stats3v3.losses;
-      }
-      if (teamMode === '4v4') {
-        if (b.stats4v4.lossRate !== a.stats4v4.lossRate) return b.stats4v4.lossRate - a.stats4v4.lossRate;
-        return b.stats4v4.losses - a.stats4v4.losses;
-      }
-      if (teamMode === '3v4') {
-        if (b.stats3v4.overall.lossRate !== a.stats3v4.overall.lossRate) return b.stats3v4.overall.lossRate - a.stats3v4.overall.lossRate;
-        return b.stats3v4.overall.losses - a.stats3v4.overall.losses;
-      }
-      if (b.lossRatePersonal !== a.lossRatePersonal) {
-        return b.lossRatePersonal - a.lossRatePersonal;
-      }
-      return b.losses - a.losses;
     })[0];
   }, [playersWithGames, teamMode]);
 
@@ -233,7 +211,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
           <button
             onClick={() => {
               setTeamMode('all');
-              setSortField('lossRatePersonal_asc');
+              setSortField('points_desc');
             }}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap min-h-[36px] ${
               teamMode === 'all'
@@ -241,7 +219,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 : 'text-slate-300 hover:text-white'
             }`}
           >
-            Alle Formate (Gesamt)
+            Alle Formate (Gesamt-Rangliste)
           </button>
 
           <button
@@ -299,11 +277,11 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <span>3 vs. 4 Spezial-Auswertung</span>
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono uppercase">
-                  Unterzahl-Faktor
+                  Unterzahl-Bonus
                 </span>
               </h4>
               <p className="text-xs text-slate-300 mt-0.5">
-                Ein Sieg im <strong>3er-Team gegen 4</strong> wiegt besonders schwer! Hier siehst du, wer in Unterzahl brilliert und wer in Überzahl patzt.
+                Ein Sieg im <strong>3er-Team gegen 4</strong> wiegt besonders schwer und bringt <strong>+2 Extra-Punkte</strong> in der Rangliste!
               </p>
             </div>
           </div>
@@ -352,7 +330,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
       {/* 4 Spotlight / Key Comparison Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Döner-König or Unterzahl-König in 3v4 */}
+        {/* Card 1: Tabellenführer / Unterzahl-König */}
         <div className={`p-5 rounded-2xl shadow-lg relative overflow-hidden ${
           teamMode === '3v4'
             ? 'bg-gradient-to-br from-slate-900 to-amber-950/50 border border-amber-500/40'
@@ -362,14 +340,14 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
             <span className={`text-xs font-semibold flex items-center gap-1.5 uppercase tracking-wider ${
               teamMode === '3v4' ? 'text-amber-400' : 'text-emerald-400'
             }`}>
-              <span>{teamMode === '3v4' ? '👑' : '🥙'}</span>
+              <span>{teamMode === '3v4' ? '🔥' : '👑'}</span>
               {teamMode === '3v4'
                 ? 'Unterzahl-König (3 gegen 4)'
                 : teamMode === '3v3'
-                ? '3vs3 Döner-König'
+                ? '3vs3 Spitzenreiter'
                 : teamMode === '4v4'
-                ? '4vs4 Döner-König'
-                : 'Döner-König (Beste Quote)'}
+                ? '4vs4 Spitzenreiter'
+                : 'Tabellenführer (Rang #1)'}
             </span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
               teamMode === '3v4'
@@ -396,48 +374,30 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   </span>
                 </div>
                 <div className="mt-2 text-[11px] text-amber-300/90 flex items-center gap-1">
-                  <span>{underdogKing.stats3v4.as3er.winRate}% Siegquote im 3er</span>
-                  <span>·</span>
-                  <span>{underdogKing.stats3v4.as3er.games} Einsätze</span>
+                  <span>{underdogKing.stats3v4.as3er.winRate}% Siegquote in Unterzahl</span>
                 </div>
               </div>
             ) : (
               <div className="text-xs text-slate-400 mt-2">Noch kein Sieg zu dritt gegen vier erfasst</div>
             )
-          ) : bestRatePlayer ? (
+          ) : pointsLeader ? (
             <div>
               <div className="text-xl font-bold text-white mb-1 truncate flex items-center gap-2">
-                <span>{bestRatePlayer.player.name}</span>
-                <span className="text-sm">👑</span>
+                <span>{pointsLeader.player.name}</span>
+                <span className="text-sm">🏆</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono text-emerald-400 tabular-nums">
-                  {teamMode === '3v3'
-                    ? `${bestRatePlayer.stats3v3.lossRate}%`
-                    : teamMode === '4v4'
-                    ? `${bestRatePlayer.stats4v4.lossRate}%`
-                    : `${bestRatePlayer.lossRatePersonal}%`}
+                  {pointsLeader.points}
                 </span>
-                <span className="text-xs text-slate-400">
-                  Niederlagenquote (
-                  {teamMode === '3v3'
-                    ? `${bestRatePlayer.stats3v3.losses}N in ${bestRatePlayer.stats3v3.games}Sp`
-                    : teamMode === '4v4'
-                    ? `${bestRatePlayer.stats4v4.losses}N in ${bestRatePlayer.stats4v4.games}Sp`
-                    : `${bestRatePlayer.losses}N in ${bestRatePlayer.gamesPlayed}Sp`}
-                  )
+                <span className="text-xs text-slate-300 font-semibold">
+                  Punkte
                 </span>
               </div>
               <div className="mt-2 text-[11px] text-emerald-300/80 flex items-center gap-1">
-                <span>Hat sich den Döner verdient!</span>
+                <span>{pointsLeader.wins} Siege & {pointsLeader.gamesPlayed} Einsätze</span>
                 <span>·</span>
-                <span>
-                  {teamMode === '3v3'
-                    ? `${bestRatePlayer.stats3v3.wins} Siege`
-                    : teamMode === '4v4'
-                    ? `${bestRatePlayer.stats4v4.wins} Siege`
-                    : `${bestRatePlayer.wins} Siege`}
-                </span>
+                <span>{pointsLeader.lossRatePersonal}% Pleiten</span>
               </div>
             </div>
           ) : (
@@ -445,65 +405,42 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
           )}
         </div>
 
-        {/* Card 2: Wenigste Niederlagen or Beste 3vs4 Quote */}
+        {/* Card 2: Beste Quote (% Pleiten) */}
         <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-sky-400 flex items-center gap-1.5 uppercase tracking-wider">
-              <Award className="w-4 h-4" />
-              {teamMode === '3v4' ? 'Beste 3vs4 Gesamtquote' : 'Wenigste Niederlagen'}
+              <Percent className="w-4 h-4" />
+              Beste Quote (Seltenste Pleiten)
             </span>
           </div>
 
-          {teamMode === '3v4' ? (
-            bestRatePlayer ? (
-              <div>
-                <div className="text-xl font-bold text-white mb-1 truncate">
-                  {bestRatePlayer.player.name}
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold font-mono text-sky-400 tabular-nums">
-                    {bestRatePlayer.stats3v4.overall.lossRate}%
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    Niederlagenquote
-                  </span>
-                </div>
-                <div className="mt-2 text-[11px] text-slate-400">
-                  {bestRatePlayer.stats3v4.overall.losses}N in {bestRatePlayer.stats3v4.overall.games} 3vs4-Spielen
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs text-slate-400 mt-2">Noch keine Spiele erfasst</div>
-            )
-          ) : fewestLossesPlayer ? (
+          {bestRatePlayer ? (
             <div>
               <div className="text-xl font-bold text-white mb-1 truncate">
-                {fewestLossesPlayer.player.name}
+                {bestRatePlayer.player.name}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono text-sky-400 tabular-nums">
                   {teamMode === '3v3'
-                    ? fewestLossesPlayer.stats3v3.losses
+                    ? `${bestRatePlayer.stats3v3.lossRate}%`
                     : teamMode === '4v4'
-                    ? fewestLossesPlayer.stats4v4.losses
-                    : fewestLossesPlayer.losses}
+                    ? `${bestRatePlayer.stats4v4.lossRate}%`
+                    : teamMode === '3v4'
+                    ? `${bestRatePlayer.stats3v4.overall.lossRate}%`
+                    : `${bestRatePlayer.lossRatePersonal}%`}
                 </span>
                 <span className="text-xs text-slate-400">
-                  Niederlagen (bei{' '}
-                  {teamMode === '3v3'
-                    ? fewestLossesPlayer.stats3v3.games
-                    : teamMode === '4v4'
-                    ? fewestLossesPlayer.stats4v4.games
-                    : fewestLossesPlayer.gamesPlayed}{' '}
-                  Spielen)
+                  Niederlagenquote
                 </span>
               </div>
               <div className="mt-2 text-[11px] text-slate-400">
                 {teamMode === '3v3'
-                  ? `${fewestLossesPlayer.stats3v3.lossRate}% Quote in 3 vs 3`
+                  ? `${bestRatePlayer.stats3v3.losses}N in ${bestRatePlayer.stats3v3.games} 3vs3-Spielen`
                   : teamMode === '4v4'
-                  ? `${fewestLossesPlayer.stats4v4.lossRate}% Quote in 4 vs 4`
-                  : `Nur ${fewestLossesPlayer.lossRatePersonal}% der Einsätze verloren`}
+                  ? `${bestRatePlayer.stats4v4.losses}N in ${bestRatePlayer.stats4v4.games} 4vs4-Spielen`
+                  : teamMode === '3v4'
+                  ? `${bestRatePlayer.stats3v4.overall.losses}N in ${bestRatePlayer.stats3v4.overall.games} 3vs4-Spielen`
+                  : `Nur ${bestRatePlayer.losses}N in ${bestRatePlayer.gamesPlayed} Einsätzen`}
               </div>
             </div>
           ) : (
@@ -511,18 +448,14 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
           )}
         </div>
 
-        {/* Card 3: Döner-Sponsor / Überzahl-Pechvogel in 3v4 */}
+        {/* Card 3: Meiste Niederlagen (Pechvogel) */}
         <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-rose-950/30 border border-rose-500/20 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-rose-400 flex items-center gap-1.5 uppercase tracking-wider">
               <span>🌶️</span>
               {teamMode === '3v4'
                 ? 'Überzahl-Pechvogel (4 gegen 3)'
-                : teamMode === '3v3'
-                ? '3vs3 Pechvogel'
-                : teamMode === '4v4'
-                ? '4vs4 Pechvogel'
-                : 'Döner-Sponsor (Pechvogel)'}
+                : 'Meiste Niederlagen (Pechvogel)'}
             </span>
             <span className="text-[10px] text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded font-mono border border-rose-800/60">
               Pechvogel
@@ -545,7 +478,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   </span>
                 </div>
                 <div className="mt-2 text-[11px] text-rose-300/80">
-                  Autsch! Trotz Überzahl gegen 3 verloren ({favoriteFlop.stats3v4.as4er.lossRate}% Pleiten)
+                  Autsch! Trotz Überzahl gegen 3 verloren
                 </div>
               </div>
             ) : (
@@ -566,23 +499,11 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                     : mostLossesPlayer.losses}
                 </span>
                 <span className="text-xs text-slate-400">
-                  Niederlagen (bei{' '}
-                  {teamMode === '3v3'
-                    ? mostLossesPlayer.stats3v3.games
-                    : teamMode === '4v4'
-                    ? mostLossesPlayer.stats4v4.games
-                    : mostLossesPlayer.gamesPlayed}{' '}
-                  Spielen)
+                  Niederlagen absolut
                 </span>
               </div>
               <div className="mt-2 text-[11px] text-rose-300/80">
-                Nächste Döner-Runde oder extra scharfe Soße! (
-                {teamMode === '3v3'
-                  ? `${mostLossesPlayer.stats3v3.lossRate}%`
-                  : teamMode === '4v4'
-                  ? `${mostLossesPlayer.stats4v4.lossRate}%`
-                  : `${mostLossesPlayer.lossRatePersonal}%`}{' '}
-                Quote)
+                {mostLossesPlayer.gamesPlayed} Spiele absolviert ({mostLossesPlayer.lossRatePersonal}% Quote)
               </div>
             </div>
           ) : (
@@ -590,7 +511,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
           )}
         </div>
 
-        {/* Card 4: Höchste Pleitenquote or Unterzahl-Kämpfer */}
+        {/* Card 4: Fleißigster Spieler or Tapferster Kämpfer */}
         <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5 uppercase tracking-wider">
@@ -601,8 +522,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 </>
               ) : (
                 <>
-                  <Percent className="w-4 h-4" />
-                  Höchste Pleitenquote (%)
+                  <Award className="w-4 h-4" />
+                  Fleißigster Spieler
                 </>
               )}
             </span>
@@ -623,40 +544,45 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   </span>
                 </div>
                 <div className="mt-2 text-[11px] text-slate-400">
-                  {mostUnderdogGames.stats3v4.as3er.wins} Siege & {mostUnderdogGames.stats3v4.as3er.losses} Niederlagen in Unterzahl
+                  {mostUnderdogGames.stats3v4.as3er.wins} Siege in Unterzahl
                 </div>
               </div>
             ) : (
               <div className="text-xs text-slate-400 mt-2">Noch keine Spiele erfasst</div>
             )
-          ) : highestRatePlayer ? (
+          ) : mostGamesPlayer ? (
             <div>
               <div className="text-xl font-bold text-white mb-1 truncate">
-                {highestRatePlayer.player.name}
+                {mostGamesPlayer.player.name}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold font-mono text-amber-400 tabular-nums">
-                  {teamMode === '3v3'
-                    ? `${highestRatePlayer.stats3v3.lossRate}%`
-                    : teamMode === '4v4'
-                    ? `${highestRatePlayer.stats4v4.lossRate}%`
-                    : `${highestRatePlayer.lossRatePersonal}%`}
+                  {mostGamesPlayer.gamesPlayed}
                 </span>
                 <span className="text-xs text-slate-400">
-                  aller eigenen Spiele verloren
+                  Einsätze
                 </span>
               </div>
               <div className="mt-2 text-[11px] text-slate-400">
-                {teamMode === '3v3'
-                  ? `${highestRatePlayer.stats3v3.losses}N in ${highestRatePlayer.stats3v3.games} Spielen`
-                  : teamMode === '4v4'
-                  ? `${highestRatePlayer.stats4v4.losses}N in ${highestRatePlayer.stats4v4.games} Spielen`
-                  : `${highestRatePlayer.losses}N in ${highestRatePlayer.gamesPlayed} Spielen`}
+                Stammkraft beim Dienstagskick ({mostGamesPlayer.wins} Siege)
               </div>
             </div>
           ) : (
             <div className="text-xs text-slate-400 mt-2">Noch keine Spiele erfasst</div>
           )}
+        </div>
+      </div>
+
+      {/* Fairness & Scoring Explainer Strip */}
+      <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-slate-300 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            <strong>Dienstagskick-Punkte:</strong> Belohnt fleißige Teilnahme, Siege und Heldentaten in Unterzahl.
+          </span>
+        </div>
+        <div className="text-[11px] text-slate-400 font-mono bg-slate-800/80 px-2.5 py-1 rounded-xl border border-slate-700/60">
+          +3 Pkt / Sieg · +0,5 Pkt / Einsatz · -1 Pkt / Niederlage · 🔥 +2 Pkt / Unterzahl-Sieg
         </div>
       </div>
 
@@ -731,35 +657,37 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   <option value="3v4_underdog_wins_desc">👑 Meiste Siege im 3er gegen 4 (Unterzahl-König)</option>
                   <option value="3v4_underdog_winRate_desc">🔥 Beste Siegquote im 3er gegen 4</option>
                   <option value="3v4_lossRate_asc">🛡️ Geringste Pleitenquote in 3 vs 4 gesamt</option>
+                  <option value="points_desc">🏆 Dienstagskick-Punkte</option>
                   <option value="gamesPlayed_desc">Meiste Einsätze gesamt</option>
                   <option value="name_asc">Name (A–Z)</option>
                 </>
               ) : teamMode === '3v3' ? (
                 <>
                   <option value="3v3_lossRate_asc">Beste Quote in 3 vs. 3</option>
+                  <option value="points_desc">🏆 Dienstagskick-Punkte</option>
+                  <option value="wins_desc">Meiste Siege</option>
                   <option value="losses_asc">Wenigste Niederlagen</option>
-                  <option value="losses_desc">Meiste Niederlagen</option>
                   <option value="gamesPlayed_desc">Meiste Einsätze</option>
                   <option value="name_asc">Name (A–Z)</option>
                 </>
               ) : teamMode === '4v4' ? (
                 <>
                   <option value="4v4_lossRate_asc">Beste Quote in 4 vs. 4</option>
+                  <option value="points_desc">🏆 Dienstagskick-Punkte</option>
+                  <option value="wins_desc">Meiste Siege</option>
                   <option value="losses_asc">Wenigste Niederlagen</option>
-                  <option value="losses_desc">Meiste Niederlagen</option>
                   <option value="gamesPlayed_desc">Meiste Einsätze</option>
                   <option value="name_asc">Name (A–Z)</option>
                 </>
               ) : (
                 <>
-                  <option value="lossRatePersonal_asc">Beste Gesamtquote (seltenste % Verluste)</option>
+                  <option value="points_desc">🏆 Dienstagskick-Punkte (Fairer Score)</option>
+                  <option value="wins_desc">Meiste Siege</option>
+                  <option value="lossRatePersonal_asc">Beste Quote (% seltenste Verluste)</option>
+                  <option value="gamesPlayed_desc">Meiste Spiele / Einsätze</option>
                   <option value="3v4_underdog_wins_desc">👑 Meiste Siege im 3er gegen 4</option>
-                  <option value="3v3_lossRate_asc">Beste Quote in 3 vs. 3</option>
-                  <option value="4v4_lossRate_asc">Beste Quote in 4 vs. 4</option>
                   <option value="losses_asc">Wenigste Niederlagen (absolut)</option>
                   <option value="losses_desc">Meiste Niederlagen (absolut)</option>
-                  <option value="gamesPlayed_desc">Meiste Spiele / Einsätze</option>
-                  <option value="lossRateTotal_asc">Quote aller Gesamtspiele (geringste)</option>
                   <option value="name_asc">Name (A–Z)</option>
                 </>
               )}
@@ -787,10 +715,11 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 </>
               ) : (
                 <>
+                  <th className="py-3.5 px-3 text-right text-emerald-400 font-bold">🏆 Punkte</th>
                   <th className="py-3.5 px-3 text-right">Einsätze</th>
-                  <th className="py-3.5 px-3 text-right">Niederlagen</th>
                   <th className="py-3.5 px-3 text-right">Siege</th>
-                  <th className="py-3.5 px-4 text-left min-w-[180px]">
+                  <th className="py-3.5 px-3 text-right">Niederlagen</th>
+                  <th className="py-3.5 px-4 text-left min-w-[170px]">
                     {teamMode === '3v3'
                       ? 'Quote in 3 vs. 3 (%)'
                       : teamMode === '4v4'
@@ -802,11 +731,10 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                       <th className="py-3.5 px-3 text-center">⚡ 3 vs 3</th>
                       <th className="py-3.5 px-3 text-center">🛡️ 4 vs 4</th>
                       <th className="py-3.5 px-3 text-center text-amber-400 bg-amber-950/20">
-                        🔥 3 vs 4 (3er / 4er)
+                        🔥 3 vs 4
                       </th>
                     </>
                   )}
-                  <th className="py-3.5 px-3 text-right">Quote alle Spiele</th>
                 </>
               )}
 
@@ -858,21 +786,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                     ? stat.stats3v4.overall.wins
                     : stat.wins;
 
-                const isTopLossRate =
-                  bestRatePlayer &&
-                  stat.player.id === bestRatePlayer.player.id &&
-                  currentGames > 0 &&
-                  teamMode !== '3v4';
-
-                const isUnderdogHero =
-                  stat.stats3v4.as3er.wins > 0 &&
-                  (teamMode === '3v4' || teamMode === 'all');
-
-                const isWorstLoss =
-                  mostLossesPlayer &&
-                  stat.player.id === mostLossesPlayer.player.id &&
-                  currentLosses > 0 &&
-                  teamMode !== '3v4';
+                const isTopPoints = index === 0 && currentGames > 0;
+                const isUnderdogHero = stat.stats3v4.as3er.wins > 0;
 
                 return (
                   <tr
@@ -882,12 +797,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                   >
                     {/* Rank */}
                     <td className="py-4 pl-6 pr-3 font-mono text-xs font-bold text-slate-400">
-                      {index === 0 && currentGames > 0 ? (
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold ${
-                          teamMode === '3v4'
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
+                      {isTopPoints ? (
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                           1
                         </span>
                       ) : (
@@ -909,16 +820,6 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                         {isUnderdogHero && (
                           <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/90 border border-amber-700/70 px-1.5 py-0.5 rounded flex items-center gap-1">
                             <span>🔥</span> {stat.stats3v4.as3er.wins}x Unterzahl-Sieg
-                          </span>
-                        )}
-                        {isTopLossRate && (
-                          <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/90 border border-emerald-700/70 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <span>🥙</span> Döner-König
-                          </span>
-                        )}
-                        {isWorstLoss && (
-                          <span className="text-[10px] font-semibold text-rose-300 bg-rose-950/90 border border-rose-700/70 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <span>🌶️</span> Döner-Sponsor
                           </span>
                         )}
                       </div>
@@ -998,19 +899,28 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                       </>
                     ) : (
                       <>
-                        {/* Standard View */}
+                        {/* Punkte Column (Prominent) */}
+                        <td className="py-4 px-3 text-right">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 font-mono font-extrabold text-sm border border-emerald-500/30 tabular-nums">
+                            {stat.points} Pkt
+                          </span>
+                        </td>
+
+                        {/* Games Played */}
                         <td className="py-4 px-3 text-right font-mono font-medium text-slate-200 tabular-nums">
                           {currentGames}
                         </td>
 
+                        {/* Wins */}
+                        <td className="py-4 px-3 text-right font-mono text-emerald-400 tabular-nums font-semibold">
+                          {currentWins}
+                        </td>
+
+                        {/* Absolute Losses */}
                         <td className="py-4 px-3 text-right">
                           <span className="font-mono font-bold text-rose-400 tabular-nums">
                             {currentLosses}
                           </span>
-                        </td>
-
-                        <td className="py-4 px-3 text-right font-mono text-emerald-400 tabular-nums font-medium">
-                          {currentWins}
                         </td>
 
                         {/* Rate Bar */}
@@ -1021,7 +931,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                                 {currentRate}%
                               </span>
                               <span className="text-[11px] text-slate-400">
-                                {currentLosses} von {currentGames} verloren
+                                {currentLosses} von {currentGames}
                               </span>
                             </div>
                             <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden flex">
@@ -1050,8 +960,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                               {stat.stats3v3.games > 0 ? (
                                 <span className="px-2 py-0.5 rounded-md bg-slate-800 font-mono text-[11px] text-slate-300">
                                   <span className="text-emerald-400 font-bold">{stat.stats3v3.wins}S</span> /{' '}
-                                  <span className="text-rose-400 font-bold">{stat.stats3v3.losses}N</span>{' '}
-                                  <span className="text-slate-400">({stat.stats3v3.lossRate}%)</span>
+                                  <span className="text-rose-400 font-bold">{stat.stats3v3.losses}N</span>
                                 </span>
                               ) : (
                                 <span className="text-slate-600 text-xs">–</span>
@@ -1062,8 +971,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                               {stat.stats4v4.games > 0 ? (
                                 <span className="px-2 py-0.5 rounded-md bg-slate-800 font-mono text-[11px] text-slate-300">
                                   <span className="text-emerald-400 font-bold">{stat.stats4v4.wins}S</span> /{' '}
-                                  <span className="text-rose-400 font-bold">{stat.stats4v4.losses}N</span>{' '}
-                                  <span className="text-slate-400">({stat.stats4v4.lossRate}%)</span>
+                                  <span className="text-rose-400 font-bold">{stat.stats4v4.losses}N</span>
                                 </span>
                               ) : (
                                 <span className="text-slate-600 text-xs">–</span>
@@ -1072,25 +980,15 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
                             <td className="py-4 px-3 text-center text-xs bg-amber-950/10">
                               {stat.stats3v4.overall.games > 0 ? (
-                                <div className="inline-flex flex-col items-center">
-                                  <span className="px-2 py-0.5 rounded-md bg-slate-800 font-mono text-[10px] text-slate-300">
-                                    3er: <span className="text-amber-400 font-bold">{stat.stats3v4.as3er.wins}S</span>/{stat.stats3v4.as3er.losses}N · 4er: <span className="text-emerald-400">{stat.stats3v4.as4er.wins}S</span>/{stat.stats3v4.as4er.losses}N
-                                  </span>
-                                </div>
+                                <span className="px-2 py-0.5 rounded-md bg-slate-800 font-mono text-[10px] text-slate-300">
+                                  3er: <span className="text-amber-400 font-bold">{stat.stats3v4.as3er.wins}S</span> · 4er: <span className="text-emerald-400">{stat.stats3v4.as4er.wins}S</span>
+                                </span>
                               ) : (
                                 <span className="text-slate-600 text-xs">–</span>
                               )}
                             </td>
                           </>
                         )}
-
-                        {/* Quote Alle Gesamtspiele */}
-                        <td className="py-4 px-3 text-right font-mono text-xs text-slate-300 tabular-nums">
-                          {stat.lossRateTotal}%
-                          <span className="text-[10px] text-slate-400 block font-normal">
-                            ({stat.losses} / {totalMatches})
-                          </span>
-                        </td>
                       </>
                     )}
 
@@ -1158,12 +1056,15 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
               >
                 {/* Header row */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-xs font-bold text-slate-400 w-5">
                       #{index + 1}
                     </span>
                     <span className="font-bold text-white text-base">
                       {stat.player.name}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
+                      {stat.points} Pkt
                     </span>
                     {stat.stats3v4.as3er.wins > 0 && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">
@@ -1172,89 +1073,48 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 text-slate-400 text-xs">
+                  <div className="flex items-center gap-1 text-slate-400 text-xs shrink-0">
                     <span>Details</span>
                     <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
 
-                {/* Key Numbers Grid */}
-                <div className="grid grid-cols-3 gap-2 p-2.5 bg-slate-800/60 rounded-xl text-center">
+                {/* Key Numbers Grid: 4 items */}
+                <div className="grid grid-cols-4 gap-2 p-2.5 bg-slate-800/60 rounded-xl text-center">
                   <div>
-                    <span className="text-[10px] text-slate-400 block">
-                      {teamMode === '3v3' ? '3vs3 Spiele' : teamMode === '4v4' ? '4vs4 Spiele' : teamMode === '3v4' ? '3vs4 Spiele' : 'Einsätze'}
+                    <span className="text-[10px] text-emerald-400 font-bold block">Punkte</span>
+                    <span className="font-mono font-extrabold text-emerald-300 text-sm tabular-nums">
+                      {stat.points}
                     </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Einsätze</span>
                     <span className="font-mono font-bold text-white text-sm tabular-nums">
                       {currentGames}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-rose-300 block">Niederlagen</span>
-                    <span className="font-mono font-bold text-rose-400 text-sm tabular-nums">
-                      {currentLosses}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-[10px] text-emerald-300 block">Siege</span>
+                    <span className="text-[10px] text-emerald-400 block">Siege</span>
                     <span className="font-mono font-bold text-emerald-400 text-sm tabular-nums">
                       {currentWins}
                     </span>
                   </div>
+
+                  <div>
+                    <span className="text-[10px] text-rose-300 block">Niederl.</span>
+                    <span className="font-mono font-bold text-rose-400 text-sm tabular-nums">
+                      {currentLosses}
+                    </span>
+                  </div>
                 </div>
-
-                {/* 3vs4 Specific Details in Mobile */}
-                {teamMode === '3v4' && (
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                    <div className="p-2 bg-amber-950/30 border border-amber-800/40 rounded-xl">
-                      <div className="text-[10px] text-amber-300 font-bold mb-0.5">👑 Im 3er gegen 4:</div>
-                      <div className="font-mono font-medium text-white">
-                        {stat.stats3v4.as3er.games > 0 ? (
-                          <>
-                            <strong className="text-amber-400">{stat.stats3v4.as3er.wins} Siege</strong> / {stat.stats3v4.as3er.losses}N ({stat.stats3v4.as3er.winRate}%)
-                          </>
-                        ) : '–'}
-                      </div>
-                    </div>
-
-                    <div className="p-2 bg-slate-800/60 border border-slate-700/50 rounded-xl">
-                      <div className="text-[10px] text-slate-300 font-bold mb-0.5">🛡️ Im 4er gegen 3:</div>
-                      <div className="font-mono font-medium text-white">
-                        {stat.stats3v4.as4er.games > 0 ? (
-                          <>
-                            <span className="text-emerald-400 font-bold">{stat.stats3v4.as4er.wins}S</span> / {stat.stats3v4.as4er.losses}N
-                          </>
-                        ) : '–'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Team Format Preview Badges (in All mode) */}
-                {teamMode === 'all' && (
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                    <div className="p-2 bg-slate-800/50 rounded-xl flex items-center justify-between">
-                      <span className="text-slate-400">⚡ 3vs3:</span>
-                      <span className="font-mono font-medium text-slate-200">
-                        {stat.stats3v3.games > 0 ? `${stat.stats3v3.wins}S / ${stat.stats3v3.losses}N` : '–'}
-                      </span>
-                    </div>
-
-                    <div className="p-2 bg-slate-800/50 rounded-xl flex items-center justify-between">
-                      <span className="text-slate-400">🛡️ 4vs4:</span>
-                      <span className="font-mono font-medium text-slate-200">
-                        {stat.stats4v4.games > 0 ? `${stat.stats4v4.wins}S / ${stat.stats4v4.losses}N` : '–'}
-                      </span>
-                    </div>
-                  </div>
-                )}
 
                 {/* Loss Rate Progress Bar */}
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-slate-400">
-                      {teamMode === '3v4' ? '3vs4 Niederlagenquote:' : 'Niederlagenquote:'}
+                      {teamMode === '3v4' ? '3vs4 Pleitenquote:' : 'Niederlagenquote:'}
                     </span>
                     <span className="font-mono font-bold text-rose-400 tabular-nums">
                       {currentRate}%
@@ -1312,6 +1172,9 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 </span>
                 <h3 className="text-2xl font-bold text-white flex items-center gap-2">
                   <span>{selectedPlayerStats.player.name}</span>
+                  <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
+                    {selectedPlayerStats.points} Punkte
+                  </span>
                   {selectedPlayerStats.stats3v4.as3er.wins > 0 && (
                     <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-medium">
                       👑 {selectedPlayerStats.stats3v4.as3er.wins}x Unterzahl-Sieg
@@ -1329,25 +1192,32 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
 
             <div className="py-4 space-y-4">
               {/* Overall Stat Cards */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
+                <div className="p-3 bg-emerald-950/30 rounded-2xl border border-emerald-800/40 text-center">
+                  <span className="text-[10px] text-emerald-300 font-bold block mb-0.5">Punkte</span>
+                  <span className="text-xl font-extrabold font-mono text-emerald-400 tabular-nums">
+                    {selectedPlayerStats.points}
+                  </span>
+                </div>
+
                 <div className="p-3 bg-slate-800/60 rounded-2xl border border-slate-700/60 text-center">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Einsätze</span>
-                  <span className="text-2xl font-extrabold font-mono text-white tabular-nums">
+                  <span className="text-[10px] text-slate-400 block mb-0.5">Einsätze</span>
+                  <span className="text-xl font-extrabold font-mono text-white tabular-nums">
                     {selectedPlayerStats.gamesPlayed}
                   </span>
                 </div>
 
                 <div className="p-3 bg-slate-800/60 rounded-2xl border border-slate-700/60 text-center">
-                  <span className="text-[11px] text-rose-300 block mb-0.5">Niederlagen</span>
-                  <span className="text-2xl font-extrabold font-mono text-rose-400 tabular-nums">
-                    {selectedPlayerStats.losses}
+                  <span className="text-[10px] text-emerald-300 block mb-0.5">Siege</span>
+                  <span className="text-xl font-extrabold font-mono text-emerald-400 tabular-nums">
+                    {selectedPlayerStats.wins}
                   </span>
                 </div>
 
                 <div className="p-3 bg-slate-800/60 rounded-2xl border border-slate-700/60 text-center">
-                  <span className="text-[11px] text-emerald-300 block mb-0.5">Quote Pleiten</span>
-                  <span className="text-2xl font-extrabold font-mono text-emerald-400 tabular-nums">
-                    {selectedPlayerStats.lossRatePersonal}%
+                  <span className="text-[10px] text-rose-300 block mb-0.5">Niederlagen</span>
+                  <span className="text-xl font-extrabold font-mono text-rose-400 tabular-nums">
+                    {selectedPlayerStats.losses}
                   </span>
                 </div>
               </div>
@@ -1375,7 +1245,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                       3 vs. 4 Spezial-Statistik ({selectedPlayerStats.stats3v4.overall.games} Spiele)
                     </span>
                     <span className="text-[10px] font-mono text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/60">
-                      Unterzahl / Überzahl
+                      Unterzahl-Bonus: +2 Pkt/Sieg
                     </span>
                   </div>
 
@@ -1453,7 +1323,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 </h4>
                 {selectedPlayerMatches.length === 0 ? (
                   <p className="text-xs text-slate-400 p-4 bg-slate-800/40 rounded-xl text-center">
-                    Noch keine Spiele für diesen Spieler absolviert.
+                    Noch keine Spiele für diesen Spieler in der App erfasst.
                   </p>
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -1465,10 +1335,15 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                       const is3v3 = myTeamSize === 3 && oppTeamSize === 3;
                       const is4v4 = myTeamSize === 4 && oppTeamSize === 4;
 
-                      const timeStr = new Date(m.timestamp).toLocaleTimeString('de-DE', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
+                      let dateFormatted = m.sessionDate;
+                      if (m.sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(m.sessionDate)) {
+                        const [y, mth, d] = m.sessionDate.split('-').map(Number);
+                        dateFormatted = new Date(y, mth - 1, d).toLocaleDateString('de-DE', {
+                          weekday: 'short',
+                          day: '2-digit',
+                          month: '2-digit',
+                        });
+                      }
 
                       let formatBadge = `${myTeamSize} vs ${oppTeamSize}`;
                       if (is3v3) formatBadge = '3 vs 3';
@@ -1506,7 +1381,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                                 </span>
                               </div>
                               <span className="text-[10px] text-slate-400">
-                                {m.sessionDate} · {timeStr} {m.note ? `· ${m.note}` : ''}
+                                {dateFormatted} {m.note ? `· ${m.note}` : ''}
                               </span>
                             </div>
                           </div>

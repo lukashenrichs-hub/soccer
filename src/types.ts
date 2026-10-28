@@ -53,6 +53,7 @@ export interface PlayerStats {
   gamesPlayed: number;       // Einsätze der Person
   losses: number;            // Anzahl der Niederlagen (absolut)
   wins: number;              // Berechnete Siege
+  points: number;            // Dienstagskick-Punkte (Siege × 3 + Einsätze × 0.5 - Niederlagen × 1 + Unterzahl-Siege × 2)
   lossRatePersonal: number;  // Quote: Niederlagen / eigene Spiele (%)
   lossRateTotal: number;     // Quote: Niederlagen / Gesamtspiele aller Runden (%)
   winRate: number;           // Quote: Siege / eigene Spiele (%)
@@ -66,8 +67,10 @@ export interface PlayerStats {
 }
 
 export type SortField =
+  | 'points_desc'                 // Dienstagskick-Punkte (Belohnt Fleiß, Siege & Unterzahl)
   | 'lossRatePersonal_asc'        // Seltenste Niederlagen (Beste Quote)
   | 'lossRatePersonal_desc'       // Häufigste Niederlagen (% Quote)
+  | 'wins_desc'                   // Meiste Siege
   | 'losses_asc'                  // Wenigste Niederlagen (absolut)
   | 'losses_desc'                 // Meiste Niederlagen (absolut)
   | 'gamesPlayed_desc'            // Meiste Einsätze

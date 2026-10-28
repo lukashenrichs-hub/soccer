@@ -81,14 +81,24 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
       ) : (
         <div className="space-y-3">
           {matches.map((match, idx) => {
-            const dateObj = new Date(match.timestamp);
-            const dateFormatted = dateObj.toLocaleDateString('de-DE', {
-              weekday: 'short',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            });
-            const timeFormatted = dateObj.toLocaleTimeString('de-DE', {
+            let dateFormatted: string;
+            if (match.sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(match.sessionDate)) {
+              const [y, m, d] = match.sessionDate.split('-').map(Number);
+              dateFormatted = new Date(y, m - 1, d).toLocaleDateString('de-DE', {
+                weekday: 'short',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              });
+            } else {
+              dateFormatted = new Date(match.timestamp).toLocaleDateString('de-DE', {
+                weekday: 'short',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              });
+            }
+            const timeFormatted = new Date(match.timestamp).toLocaleTimeString('de-DE', {
               hour: '2-digit',
               minute: '2-digit',
             });

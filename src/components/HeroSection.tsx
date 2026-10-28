@@ -41,17 +41,17 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <span className="text-slate-500">·</span>
             <span className="text-slate-300">Dienstags bis 10 Tore</span>
             <span className="text-slate-500">·</span>
-            <span className="text-amber-300 bg-amber-950/70 border border-amber-800/60 px-2 py-0.5 rounded-lg">
-              🥙 Danach Döner-Runde
+            <span className="text-emerald-300 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-lg">
+              ⚽ Wöchentliche Hallenrunde
             </span>
           </div>
 
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
-            Dienstagskick & Döner-Rangliste
+            Dienstagskick
           </h1>
           <p className="text-sm sm:text-base text-slate-300 mb-6 leading-relaxed">
-            Hallenfußball in der VTV-Halle: Jedes Spiel geht bis 10. Wer verliert am seltensten und 
-            holt sich den verdienten Döner-König – und wer muss nach den meisten Pleiten die Getränke oder den Döner sponsern?
+            Hallenfußball in der VTV-Halle: Jedes Spiel geht bis 10 Tore. Hier siehst du die Rangliste aller Spieler – 
+            wer viel spielt, Siege holt und sich in Unterzahl behauptet, klettert nach oben!
           </p>
 
           <div className="flex flex-wrap items-center gap-3">

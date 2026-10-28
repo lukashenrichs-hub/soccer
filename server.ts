@@ -174,10 +174,16 @@ app.post('/api/matches', (req, res) => {
   const winnerIds = finalParticipants.filter((id) => !loserIds.includes(id));
   const now = new Date();
   const dateStr = sessionDate || now.toISOString().split('T')[0];
+  let matchTimestamp = now.toISOString();
+  if (sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    const [y, m, d] = sessionDate.split('-').map(Number);
+    const customDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+    matchTimestamp = customDate.toISOString();
+  }
 
   const newMatch: Match = {
     id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    timestamp: now.toISOString(),
+    timestamp: matchTimestamp,
     sessionDate: dateStr,
     scoreTo: 10,
     participantIds: finalParticipants,

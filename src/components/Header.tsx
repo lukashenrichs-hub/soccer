@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
                 VTV Freier Grund
               </span>
               <span className="text-xs bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 px-1.5 py-0.5 rounded-md font-mono hidden sm:inline">
-                Kick & Döner 🥙
+                Dienstagskick ⚽
               </span>
             </div>
           </button>

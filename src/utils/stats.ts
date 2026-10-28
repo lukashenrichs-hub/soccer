@@ -102,11 +102,21 @@ export function calculatePlayerStats(data: AppData): PlayerStats[] {
       winRate: g > 0 ? Math.round((w / g) * 1000) / 10 : 0,
     });
 
+    const underdogWins = g3v4_as3 > 0 ? w3v4_as3 : 0;
+    // Points formula:
+    // +3.0 Punkte pro Sieg
+    // +0.5 Punkte pro Einsatz (Belohnung fürs fleißige Mitspielen & Dasein)
+    // -1.0 Punkt pro Niederlage
+    // +2.0 Extra-Punkte pro Unterzahl-Sieg (im 3er gegen 4 gewonnen)
+    const pointsRaw = (wins * 3) + (gamesPlayed * 0.5) - (losses * 1) + (underdogWins * 2);
+    const points = Math.max(0, Math.round(pointsRaw * 10) / 10);
+
     return {
       player,
       gamesPlayed,
       losses,
       wins,
+      points,
       lossRatePersonal: Math.round(lossRatePersonal * 10) / 10,
       lossRateTotal: Math.round(lossRateTotal * 10) / 10,
       winRate: Math.round(winRate * 10) / 10,
@@ -128,6 +138,17 @@ export function calculatePlayerStats(data: AppData): PlayerStats[] {
 export function sortPlayerStats(stats: PlayerStats[], sortBy: SortField): PlayerStats[] {
   return [...stats].sort((a, b) => {
     switch (sortBy) {
+      case 'points_desc':
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (a.lossRatePersonal !== b.lossRatePersonal) return a.lossRatePersonal - b.lossRatePersonal;
+        return b.gamesPlayed - a.gamesPlayed;
+
+      case 'wins_desc':
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        if (b.points !== a.points) return b.points - a.points;
+        return a.losses - b.losses;
+
       case '3v3_lossRate_asc':
       case 'team3_lossRate_asc':
         if (a.stats3v3.games === 0 && b.stats3v3.games > 0) return 1;
@@ -217,7 +238,7 @@ export function sortPlayerStats(stats: PlayerStats[], sortBy: SortField): Player
 export function generateWhatsAppReport(data: AppData): string {
   const totalMatches = (data.historicalTotalMatches || 73) + data.matches.length;
   const stats = calculatePlayerStats(data);
-  const sorted = sortPlayerStats(stats, 'lossRatePersonal_asc').filter((s) => s.gamesPlayed > 0);
+  const sorted = sortPlayerStats(stats, 'points_desc').filter((s) => s.gamesPlayed > 0);
 
   const todayStr = new Intl.DateTimeFormat('de-DE', {
     weekday: 'long',
@@ -226,28 +247,34 @@ export function generateWhatsAppReport(data: AppData): string {
     year: 'numeric',
   }).format(new Date());
 
-  let text = `⚽ *VTV Freier Grund – Dienstagskick & Döner-Runde* (${todayStr})\n`;
+  let text = `⚽ *VTV Freier Grund – Dienstagskick* (${todayStr})\n`;
   text += `Halle: VTV Freier Grund | Gesamtspiele: *${totalMatches}* (bis 10 Tore)\n\n`;
-  text += `🏆 *Döner-Rangliste (seltenste Niederlagen %):*\n`;
+  text += `🏆 *Dienstagskick Rangliste:*\n`;
 
   if (sorted.length === 0) {
     text += `Noch keine Spiele erfasst.\n`;
   } else {
     sorted.forEach((item, index) => {
-      const medal = index === 0 ? '🥙🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-      text += `${medal} *${item.player.name}*: ${item.losses} Niederlagen in ${item.gamesPlayed} Spielen (${item.lossRatePersonal}% Quote)\n`;
+      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      text += `${medal} *${item.player.name}*: *${item.points} Pkt* (${item.wins}S / ${item.losses}N in ${item.gamesPlayed} Sp · ${item.lossRatePersonal}% Pleiten)\n`;
     });
   }
 
-  // Döner-König (Rang 1)
+  // Tabellenführer
   if (sorted.length > 0) {
-    text += `\n🥙 *Döner-König:* ${sorted[0].player.name} (Beste Quote: nur ${sorted[0].lossRatePersonal}% Pleiten!)\n`;
+    text += `\n👑 *Tabellenführer:* ${sorted[0].player.name} mit *${sorted[0].points} Punkten*!\n`;
   }
 
-  // Pechvogel / Döner-Sponsor
+  // Beste Quote
+  const bestQuote = [...sorted].sort((a, b) => a.lossRatePersonal - b.lossRatePersonal || b.gamesPlayed - a.gamesPlayed)[0];
+  if (bestQuote) {
+    text += `🥙 *Beste Quote:* ${bestQuote.player.name} (${bestQuote.lossRatePersonal}% Pleiten in ${bestQuote.gamesPlayed} Sp)\n`;
+  }
+
+  // Pechvogel
   const worstAbsolute = [...sorted].sort((a, b) => b.losses - a.losses)[0];
   if (worstAbsolute && worstAbsolute.losses > 0) {
-    text += `🌶️ *Döner-Sponsor (Pechvogel):* ${worstAbsolute.player.name} (${worstAbsolute.losses} Niederlagen absolut)\n`;
+    text += `🌶️ *Meiste Pleiten:* ${worstAbsolute.player.name} (${worstAbsolute.losses} Niederlagen absolut)\n`;
   }
 
   // Format Highlights (3v3, 4v4, 3v4)

@@ -53,6 +53,7 @@ export default function App() {
   const handleSaveMatch = async (matchData: {
     participantIds: string[];
     loserIds: string[];
+    sessionDate?: string;
     note?: string;
   }) => {
     const newMatch = await addMatch(matchData);
@@ -68,6 +69,7 @@ export default function App() {
     matchData: {
       participantIds?: string[];
       loserIds?: string[];
+      sessionDate?: string;
       note?: string;
     }
   ) => {
