@@ -812,11 +812,6 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                         <span className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
                           {stat.player.name}
                         </span>
-                        {stat.isAttendeeToday && (
-                          <span className="text-[10px] font-medium text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-1.5 py-0.5 rounded">
-                            Heute da
-                          </span>
-                        )}
                         {isUnderdogHero && (
                           <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/90 border border-amber-700/70 px-1.5 py-0.5 rounded flex items-center gap-1">
                             <span>🔥</span> {stat.stats3v4.as3er.wins}x Unterzahl-Sieg

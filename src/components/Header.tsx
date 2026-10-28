@@ -19,9 +19,11 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 md:gap-8">
         {/* Zone 1: Brand wordmark */}
         <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-base">
-            ⚽
-          </div>
+          <img
+            src="/assets/aistudio/logoFlyer3D_a83d64ce.png"
+            alt="VTV Freier Grund 2016 e.V."
+            className="w-10 h-10 object-contain drop-shadow shrink-0"
+          />
           <button
             onClick={() => setActiveTab('stats')}
             className="text-left group focus:outline-none"
