@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Check, ShieldAlert, X, RotateCcw, UserMinus, UserCheck, Flame } from 'lucide-react';
-import { Player } from '../types';
+import { Match, Player } from '../types';
 
 interface QuickMatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   players: Player[];
   activeAttendeeIds: string[];
+  matchToEdit?: Match | null;
   onSaveMatch: (matchData: {
     participantIds: string[];
     loserIds: string[];
     note?: string;
   }) => Promise<any>;
+  onEditMatch?: (
+    id: string,
+    matchData: {
+      participantIds: string[];
+      loserIds: string[];
+      note?: string;
+    }
+  ) => Promise<any>;
   onUpdateAttendees?: (attendeeIds: string[]) => Promise<any>;
 }
 
@@ -20,7 +29,9 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   onClose,
   players,
   activeAttendeeIds,
+  matchToEdit,
   onSaveMatch,
+  onEditMatch,
   onUpdateAttendees,
 }) => {
   // Active participants on the pitch
@@ -35,18 +46,23 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   // Initialize participants ONLY when modal transitions from closed to open
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
-      // Default: If active attendees exist, use them. Otherwise default to all active players.
-      const initialParticipants =
-        activeAttendeeIds.length >= 2
-          ? activeAttendeeIds
-          : players.filter((p) => p.active).map((p) => p.id);
-      setParticipants(initialParticipants);
-      setLosers([]);
-      setNote('');
+      if (matchToEdit) {
+        setParticipants(matchToEdit.participantIds);
+        setLosers(matchToEdit.loserIds);
+        setNote(matchToEdit.note || '');
+      } else {
+        const initialParticipants =
+          activeAttendeeIds.length >= 2
+            ? activeAttendeeIds
+            : players.filter((p) => p.active).map((p) => p.id);
+        setParticipants(initialParticipants);
+        setLosers([]);
+        setNote('');
+      }
       setErrorMsg(null);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, matchToEdit]);
 
   if (!isOpen) return null;
 
@@ -112,16 +128,24 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
       setIsSubmitting(true);
       setErrorMsg(null);
 
-      // Save match
-      await onSaveMatch({
-        participantIds: participants,
-        loserIds: losers,
-        note: note.trim() || undefined,
-      });
+      // Save or edit match
+      if (matchToEdit && onEditMatch) {
+        await onEditMatch(matchToEdit.id, {
+          participantIds: participants,
+          loserIds: losers,
+          note: note.trim() || undefined,
+        });
+      } else {
+        await onSaveMatch({
+          participantIds: participants,
+          loserIds: losers,
+          note: note.trim() || undefined,
+        });
 
-      // Automatically remember participants for the next match
-      if (onUpdateAttendees) {
-        onUpdateAttendees(participants).catch(() => {});
+        // Automatically remember participants for the next match
+        if (onUpdateAttendees) {
+          onUpdateAttendees(participants).catch(() => {});
+        }
       }
 
       onClose();
@@ -150,7 +174,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
               <span>BIS 10 TORE</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-              <span>Spiel eintragen</span>
+              <span>{matchToEdit ? 'Spiel nachträglich bearbeiten' : 'Spiel eintragen'}</span>
               <span className="text-base text-slate-400 font-normal">
                 ({participants.length} auf dem Platz)
               </span>
@@ -177,21 +201,51 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           )}
 
           {/* Quick Counter Strip */}
-          <div className="flex items-center justify-between p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-2xl text-xs sm:text-sm">
-            <div className="flex items-center gap-1.5 text-rose-400 font-bold">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span>{losers.length} Verlierer</span>
+          <div className="p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-2xl space-y-2">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 text-rose-400 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                <span>{losers.length} Verlierer</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span>{winnersCount} Gewinner</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />
+                <span>{pausedCount} Pausiert / Sofa</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>{winnersCount} Gewinner</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-slate-400 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />
-              <span>{pausedCount} Pausiert / Sofa</span>
-            </div>
+            {/* Dynamic Format Detection Banner */}
+            {losers.length > 0 && winnersCount > 0 && (
+              <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs">
+                <span className="text-slate-400">Erkanntes Format:</span>
+                {losers.length === 3 && winnersCount === 3 ? (
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 font-mono font-medium">
+                    ⚡ 3 vs. 3 (Ausgeglichene 3er-Teams)
+                  </span>
+                ) : losers.length === 4 && winnersCount === 4 ? (
+                  <span className="px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-700/60 text-sky-300 font-mono font-medium">
+                    🛡️ 4 vs. 4 (Ausgeglichene 4er-Teams)
+                  </span>
+                ) : losers.length === 4 && winnersCount === 3 ? (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-amber-600/70 text-amber-300 font-mono font-bold flex items-center gap-1">
+                    <span>🔥</span> 3 vs. 4 (🏆 Unterzahl-Sieg für das 3er-Team!)
+                  </span>
+                ) : losers.length === 3 && winnersCount === 4 ? (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-950/70 border border-amber-800/60 text-amber-200 font-mono font-medium">
+                    🔥 3 vs. 4 (Überzahl-Sieg für das 4er-Team)
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                    {losers.length} vs. {winnersCount}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Player Grid */}
@@ -323,7 +377,13 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
             }`}
           >
             <Check className="w-4 h-4 stroke-[3]" />
-            <span>{isSubmitting ? 'Speichere...' : 'Spiel bis 10 speichern'}</span>
+            <span>
+              {isSubmitting
+                ? 'Speichere...'
+                : matchToEdit
+                ? 'Änderungen speichern'
+                : 'Spiel bis 10 speichern'}
+            </span>
           </button>
         </div>
       </div>

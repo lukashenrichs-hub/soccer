@@ -7,6 +7,7 @@ import { MatchHistory } from './components/MatchHistory';
 import { PlayersView } from './components/PlayersView';
 import { QuickMatchModal } from './components/QuickMatchModal';
 import { ShareModal } from './components/ShareModal';
+import { Match } from './types';
 import { 
   Trophy, 
   History, 
@@ -24,6 +25,7 @@ export default function App() {
     error,
     refresh,
     addMatch,
+    editMatch,
     deleteMatch,
     updateAttendees,
     addPlayer,
@@ -34,8 +36,19 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'stats' | 'history' | 'players'>('stats');
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
+
+  const handleOpenNewMatch = () => {
+    setEditingMatch(null);
+    setIsMatchModalOpen(true);
+  };
+
+  const handleOpenEditMatch = (match: Match) => {
+    setEditingMatch(match);
+    setIsMatchModalOpen(true);
+  };
 
   const handleSaveMatch = async (matchData: {
     participantIds: string[];
@@ -48,6 +61,22 @@ export default function App() {
       setSaveSuccessToast(null);
     }, 3500);
     return newMatch;
+  };
+
+  const handleEditMatch = async (
+    id: string,
+    matchData: {
+      participantIds?: string[];
+      loserIds?: string[];
+      note?: string;
+    }
+  ) => {
+    const updated = await editMatch(id, matchData);
+    setSaveSuccessToast('Spielergebnis erfolgreich aktualisiert! ✏️');
+    setTimeout(() => {
+      setSaveSuccessToast(null);
+    }, 3500);
+    return updated;
   };
 
   // Loading Screen
@@ -95,7 +124,7 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenNewMatch={() => setIsMatchModalOpen(true)}
+        onOpenNewMatch={handleOpenNewMatch}
         onOpenShare={() => setIsShareModalOpen(true)}
       />
 
@@ -116,23 +145,24 @@ export default function App() {
               totalMatches={data.matches.length}
               todayMatchesCount={todayMatchesCount}
               activePlayersCount={data.players.length}
-              onOpenNewMatch={() => setIsMatchModalOpen(true)}
+              onOpenNewMatch={handleOpenNewMatch}
               onOpenShare={() => setIsShareModalOpen(true)}
             />
             <StatsDashboard
               data={data}
-              onOpenNewMatch={() => setIsMatchModalOpen(true)}
+              onOpenNewMatch={handleOpenNewMatch}
             />
           </>
         )}
 
-        {/* Tab 2: Match History */}
+        {/* Tab 2: Match History with Edit & Delete */}
         {activeTab === 'history' && (
           <MatchHistory
             data={data}
             onDeleteMatch={deleteMatch}
+            onEditMatch={handleOpenEditMatch}
             onBackToStats={() => setActiveTab('stats')}
-            onOpenNewMatch={() => setIsMatchModalOpen(true)}
+            onOpenNewMatch={handleOpenNewMatch}
           />
         )}
 
@@ -161,7 +191,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setIsMatchModalOpen(true)}
+            onClick={handleOpenNewMatch}
             className="flex flex-col items-center justify-center h-full text-emerald-400 font-semibold"
           >
             <div className="w-10 h-10 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/30">
@@ -195,10 +225,15 @@ export default function App() {
       {/* Modals */}
       <QuickMatchModal
         isOpen={isMatchModalOpen}
-        onClose={() => setIsMatchModalOpen(false)}
+        onClose={() => {
+          setIsMatchModalOpen(false);
+          setEditingMatch(null);
+        }}
         players={data.players}
         activeAttendeeIds={data.activeAttendeeIds}
+        matchToEdit={editingMatch}
         onSaveMatch={handleSaveMatch}
+        onEditMatch={handleEditMatch}
         onUpdateAttendees={updateAttendees}
       />
 

@@ -26,11 +26,34 @@ const INITIAL_PLAYERS = [
   'Robin',
 ];
 
+const HISTORICAL_BASELINES: Record<string, { games: number; losses: number; wins: number }> = {
+  'Sandro': { games: 73, losses: 39, wins: 34 },
+  'Max': { games: 64, losses: 30, wins: 34 },
+  'Felix': { games: 63, losses: 28, wins: 35 },
+  'Basti': { games: 62, losses: 28, wins: 34 },
+  'Jonas': { games: 55, losses: 29, wins: 26 },
+  'Lukas Henrichs': { games: 51, losses: 31, wins: 20 },
+  'Lukas': { games: 51, losses: 31, wins: 20 },
+  'Nico': { games: 48, losses: 21, wins: 27 },
+  'Stefan': { games: 26, losses: 9, wins: 17 },
+  'Elton': { games: 23, losses: 12, wins: 11 },
+  'Tom': { games: 14, losses: 8, wins: 6 },
+  'Lukas Heider': { games: 8, losses: 5, wins: 3 },
+  'Robin': { games: 4, losses: 2, wins: 2 },
+};
+
+interface HistoricalStats {
+  games: number;
+  losses: number;
+  wins?: number;
+}
+
 interface Player {
   id: string;
   name: string;
   active: boolean;
   createdAt: string;
+  historicalStats?: HistoricalStats;
 }
 
 interface Match {
@@ -49,6 +72,7 @@ interface AppData {
   matches: Match[];
   activeAttendeeIds: string[];
   lastUpdated: string;
+  historicalTotalMatches?: number;
 }
 
 function getInitialData(): AppData {
@@ -59,9 +83,11 @@ function getInitialData(): AppData {
       name,
       active: true,
       createdAt: now,
+      historicalStats: HISTORICAL_BASELINES[name],
     })),
     matches: [],
     activeAttendeeIds: [],
+    historicalTotalMatches: 73,
     lastUpdated: now,
   };
 }
@@ -77,7 +103,26 @@ function loadData(): AppData {
       return initial;
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
+    const parsed: AppData = JSON.parse(raw);
+
+    // Merge baseline historical stats for players if missing
+    let changed = false;
+    parsed.players.forEach((p) => {
+      if (!p.historicalStats && HISTORICAL_BASELINES[p.name]) {
+        p.historicalStats = HISTORICAL_BASELINES[p.name];
+        changed = true;
+      }
+    });
+
+    if (!parsed.historicalTotalMatches) {
+      parsed.historicalTotalMatches = 73;
+      changed = true;
+    }
+
+    if (changed) {
+      saveData(parsed);
+    }
+
     return parsed;
   } catch (err) {
     console.error('Error loading data, falling back to initial data:', err);
@@ -158,6 +203,41 @@ app.delete('/api/matches/:id', (req, res) => {
 
   saveData(appData);
   res.json({ success: true, state: appData });
+});
+
+app.put('/api/matches/:id', (req, res) => {
+  const { id } = req.params;
+  const { participantIds, loserIds, note, sessionDate } = req.body;
+  const match = appData.matches.find((m) => m.id === id);
+
+  if (!match) {
+    return res.status(404).json({ error: 'Spiel nicht gefunden.' });
+  }
+
+  if (Array.isArray(loserIds) && loserIds.length > 0) {
+    match.loserIds = loserIds;
+  }
+
+  if (Array.isArray(participantIds) && participantIds.length > 0) {
+    match.participantIds = participantIds;
+    // ensure all losers are in participants
+    for (const lId of match.loserIds) {
+      if (!match.participantIds.includes(lId)) {
+        match.participantIds.push(lId);
+      }
+    }
+  }
+
+  match.winnerIds = match.participantIds.filter((pId) => !match.loserIds.includes(pId));
+  if (typeof note === 'string') {
+    match.note = note.trim() || undefined;
+  }
+  if (sessionDate) {
+    match.sessionDate = sessionDate;
+  }
+
+  saveData(appData);
+  res.json({ match, state: appData });
 });
 
 app.post('/api/attendees', (req, res) => {

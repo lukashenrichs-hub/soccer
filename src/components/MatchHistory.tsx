@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Trash2, Calendar, Clock, Trophy, XCircle, CheckCircle, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Trash2, Edit3, Calendar, Clock, Trophy, XCircle, CheckCircle, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { AppData, Match, Player } from '../types';
 
 interface MatchHistoryProps {
   data: AppData;
   onDeleteMatch: (id: string) => Promise<any>;
+  onEditMatch: (match: Match) => void;
   onBackToStats: () => void;
   onOpenNewMatch: () => void;
 }
@@ -12,6 +13,7 @@ interface MatchHistoryProps {
 export const MatchHistory: React.FC<MatchHistoryProps> = ({
   data,
   onDeleteMatch,
+  onEditMatch,
   onBackToStats,
   onOpenNewMatch,
 }) => {
@@ -108,6 +110,49 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                     <span className="text-slate-300 font-medium">{dateFormatted}</span>
                     <span className="text-slate-500">·</span>
                     <span className="text-slate-400 font-mono">{timeFormatted} Uhr</span>
+                    <span className="text-slate-500">·</span>
+                    {(() => {
+                      const lCount = match.loserIds.length;
+                      const wCount = match.winnerIds.length;
+                      const is3v3 = lCount === 3 && wCount === 3;
+                      const is4v4 = lCount === 4 && wCount === 4;
+                      const is3v4 = (lCount === 3 && wCount === 4) || (lCount === 4 && wCount === 3);
+                      const isUnderdogVictory = is3v4 && wCount === 3;
+
+                      if (isUnderdogVictory) {
+                        return (
+                          <span className="bg-amber-950/80 border border-amber-600/70 text-amber-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold flex items-center gap-1 shadow-sm">
+                            <span>🔥</span> 3 vs 4 (Unterzahl-Sieg des 3er-Teams!)
+                          </span>
+                        );
+                      }
+                      if (is3v4) {
+                        return (
+                          <span className="bg-amber-950/40 border border-amber-800/40 text-amber-200 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                            3 vs 4 (4er-Team gewinnt)
+                          </span>
+                        );
+                      }
+                      if (is3v3) {
+                        return (
+                          <span className="bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                            ⚡ 3 vs 3 (3er-Teams)
+                          </span>
+                        );
+                      }
+                      if (is4v4) {
+                        return (
+                          <span className="bg-sky-950/60 border border-sky-800/50 text-sky-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                            🛡️ 4 vs 4 (4er-Teams)
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="bg-slate-800 border border-slate-700/60 text-slate-200 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                          {lCount} vs {wCount}
+                        </span>
+                      );
+                    })()}
                     {match.note && (
                       <>
                         <span className="text-slate-500">·</span>
@@ -136,13 +181,23 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setDeleteConfirmId(match.id)}
-                      title="Spiel löschen"
-                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => onEditMatch(match)}
+                        title="Spiel nachträglich bearbeiten"
+                        className="px-2.5 py-1 text-xs text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700/80 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Bearbeiten</span>
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirmId(match.id)}
+                        title="Spiel löschen"
+                        className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
