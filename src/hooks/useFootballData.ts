@@ -165,6 +165,7 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch(`/api/matches/${id}`, {
         method: 'DELETE',
+        headers: { 'x-admin-pin': '57290' },
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -190,7 +191,10 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch(`/api/matches/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-pin': '57290',
+        },
         body: JSON.stringify(matchData),
       });
       if (!res.ok) {
@@ -231,7 +235,10 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch('/api/players', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-pin': '57290',
+        },
         body: JSON.stringify({ name }),
       });
       if (!res.ok) {
@@ -252,6 +259,7 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch(`/api/players/${id}`, {
         method: 'DELETE',
+        headers: { 'x-admin-pin': '57290' },
       });
       if (!res.ok) throw new Error('Fehler beim Löschen des Spielers');
       const resJson = await res.json();
@@ -267,6 +275,7 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch('/api/reset-seed', {
         method: 'POST',
+        headers: { 'x-admin-pin': '57290' },
       });
       if (!res.ok) throw new Error('Fehler beim Zurücksetzen');
       const resJson = await res.json();
@@ -282,7 +291,10 @@ export function useFootballData() {
       setIsSaving(true);
       const res = await fetch('/api/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-pin': '57290',
+        },
         body: JSON.stringify(imported),
       });
       if (!res.ok) throw new Error('Fehler beim Importieren');

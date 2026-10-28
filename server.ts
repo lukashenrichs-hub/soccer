@@ -198,7 +198,17 @@ app.post('/api/matches', (req, res) => {
   res.status(201).json({ match: newMatch, state: appData });
 });
 
-app.delete('/api/matches/:id', (req, res) => {
+const ADMIN_PIN = '57290';
+
+const requireAdminPin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const pin = req.headers['x-admin-pin'] || req.body?.pin || req.query?.pin;
+  if (pin !== ADMIN_PIN) {
+    return res.status(403).json({ error: 'PIN ungültig oder erforderlich (Admin-PIN: 57290).' });
+  }
+  next();
+};
+
+app.delete('/api/matches/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
   const initialLength = appData.matches.length;
   appData.matches = appData.matches.filter((m) => m.id !== id);
@@ -211,7 +221,7 @@ app.delete('/api/matches/:id', (req, res) => {
   res.json({ success: true, state: appData });
 });
 
-app.put('/api/matches/:id', (req, res) => {
+app.put('/api/matches/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
   const { participantIds, loserIds, note, sessionDate } = req.body;
   const match = appData.matches.find((m) => m.id === id);
@@ -256,7 +266,7 @@ app.post('/api/attendees', (req, res) => {
   res.json({ success: true, activeAttendeeIds: appData.activeAttendeeIds });
 });
 
-app.post('/api/players', (req, res) => {
+app.post('/api/players', requireAdminPin, (req, res) => {
   const { name } = req.body;
   if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Name ist erforderlich.' });
@@ -279,7 +289,7 @@ app.post('/api/players', (req, res) => {
   res.status(201).json({ player: newPlayer, state: appData });
 });
 
-app.put('/api/players/:id', (req, res) => {
+app.put('/api/players/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
   const { name, active } = req.body;
   const player = appData.players.find((p) => p.id === id);
@@ -296,7 +306,7 @@ app.put('/api/players/:id', (req, res) => {
   res.json({ player, state: appData });
 });
 
-app.delete('/api/players/:id', (req, res) => {
+app.delete('/api/players/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
   appData.players = appData.players.filter((p) => p.id !== id);
   appData.activeAttendeeIds = appData.activeAttendeeIds.filter((pId) => pId !== id);
@@ -304,13 +314,13 @@ app.delete('/api/players/:id', (req, res) => {
   res.json({ success: true, state: appData });
 });
 
-app.post('/api/reset-seed', (_req, res) => {
+app.post('/api/reset-seed', requireAdminPin, (_req, res) => {
   appData = getInitialData();
   saveData(appData);
   res.json({ success: true, state: appData });
 });
 
-app.post('/api/import', (req, res) => {
+app.post('/api/import', requireAdminPin, (req, res) => {
   const { players, matches, activeAttendeeIds } = req.body;
   if (!Array.isArray(players) || !Array.isArray(matches)) {
     return res.status(400).json({ error: 'Ungültiges Datenformat für den Import.' });

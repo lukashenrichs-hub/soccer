@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Copy, Download, RefreshCw, Send, Share2, Upload, X } from 'lucide-react';
+import { Check, Copy, Download, RefreshCw, Send, Share2, Upload, X, Lock, Unlock } from 'lucide-react';
 import { AppData } from '../types';
 import { generateWhatsAppReport } from '../utils/stats';
+import { AdminPinModal } from './AdminPinModal';
+import { isAdminAuthenticated, setAdminAuthenticated } from '../utils/adminAuth';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -22,6 +24,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [adminUnlocked, setAdminUnlocked] = useState(() => isAdminAuthenticated());
 
   if (!isOpen) return null;
 
@@ -91,6 +95,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     }
   };
 
+  const handleLockAdmin = () => {
+    setAdminAuthenticated(false);
+    setAdminUnlocked(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
       <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 my-8 flex flex-col">
@@ -152,30 +161,22 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-emerald-400/90 font-medium">
-              ⚡ Öffentlicher Link: Funktioniert für alle Mitspieler ohne Google-Login (kein Fehler 403 mehr).
+              ⚡ Öffentlicher Link: Funktioniert für alle Mitspieler ohne Google-Login.
             </p>
           </div>
 
           {/* WhatsApp Text Export */}
           <div className="p-4 bg-slate-800/60 border border-slate-700/80 rounded-2xl space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                <Send className="w-3.5 h-3.5" />
-                WhatsApp Spieltags-Bericht
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Send className="w-3.5 h-3.5 text-emerald-400" />
+                WhatsApp Spieltags-Tabelle
               </span>
-              <button
-                onClick={handleCopyWhatsapp}
-                className="text-xs text-emerald-400 hover:text-emerald-300 underline font-medium"
-              >
-                {copiedWhatsapp ? 'Text kopiert! ✓' : 'Bericht kopieren'}
-              </button>
+              <span className="text-[10px] text-slate-400">Direkt zum Versenden</span>
             </div>
-            <textarea
-              readOnly
-              rows={4}
-              value={whatsappReport}
-              className="w-full p-2.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-300 font-mono resize-none focus:outline-none"
-            />
+            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed select-all">
+              {whatsappReport}
+            </div>
             <button
               onClick={handleCopyWhatsapp}
               className="w-full py-2 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 transition-colors"
@@ -185,86 +186,110 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </button>
           </div>
 
-          {/* Data Backup & Restore */}
-          <div className="pt-2 border-t border-slate-800 space-y-3">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Sicherung & Verwaltung
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleExportJson}
-                className="px-3.5 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-slate-400" />
-                <span>Backup herunterladen (JSON)</span>
-              </button>
-
-              <label className="px-3.5 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer">
-                <Upload className="w-3.5 h-3.5 text-slate-400" />
-                <span>Backup einspielen</span>
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImportJson}
-                  className="hidden"
-                />
-              </label>
-
-              <a
-                href="/download-zip"
-                download="vtv-freier-grund-kick.zip"
-                className="px-3.5 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900/90 rounded-xl border border-emerald-700/80 flex items-center gap-1.5 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>📦 Projekt als ZIP herunterladen (für Render/Vercel)</span>
-              </a>
-            </div>
-
-            {/* Render 100% Free Hosting Note */}
-            <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-xs space-y-1 text-slate-300">
-              <span className="font-semibold text-emerald-400 block">
-                🚀 Eigenes kostenloses Web-Hosting ohne Google-Login:
-              </span>
-              <p className="text-[11px] text-slate-400">
-                1. Lade das Projekt oben als ZIP herunter.<br />
-                2. Erstelle einen kostenlosen Account auf <strong>render.com</strong> oder <strong>github.com</strong>.<br />
-                3. Lade die Dateien hoch $\rightarrow$ Deine App bekommt eine eigene Web-Adresse (z. B. <em>vtv-kick.onrender.com</em>) und öffnet sich für jeden Apple- und Android-User direkt ohne Google-Abfrage!
-              </p>
-            </div>
-
-            {/* Reset to 12 original players */}
-            <div className="pt-2">
-              {showResetConfirm ? (
-                <div className="p-3 bg-rose-950/60 border border-rose-800 rounded-xl space-y-2">
-                  <p className="text-xs text-rose-200">
-                    Möchtest du wirklich alle Spiele löschen und die 12 Original-Spieler neu anlegen?
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleReset}
-                      disabled={isResetting}
-                      className="px-3 py-1.5 text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 rounded-lg"
-                    >
-                      Ja, alles zurücksetzen
-                    </button>
-                    <button
-                      onClick={() => setShowResetConfirm(false)}
-                      className="px-3 py-1.5 text-xs text-slate-300 hover:text-white"
-                    >
-                      Abbrechen
-                    </button>
+          {/* Admin Protected Area */}
+          <div className="pt-2 border-t border-slate-800">
+            {!adminUnlocked ? (
+              <div className="p-4 bg-slate-950/80 border border-slate-800/90 rounded-2xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
+                    <Lock className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">
+                      Admin-Bereich
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Sicherung, Backup & Systemverwaltung (PIN-geschützt)
+                    </span>
                   </div>
                 </div>
-              ) : (
                 <button
-                  onClick={() => setShowResetConfirm(true)}
-                  className="text-xs text-slate-400 hover:text-rose-400 flex items-center gap-1.5 transition-colors"
+                  onClick={() => setIsPinModalOpen(true)}
+                  className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-700 transition-colors shrink-0"
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Auf Standard-Spielerkader (12 Spieler) zurücksetzen</span>
+                  PIN eingeben
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 bg-slate-950/60 border border-emerald-900/40 rounded-2xl animate-in fade-in">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+                    Admin-Bereich freigeschaltet
+                  </span>
+                  <button
+                    onClick={handleLockAdmin}
+                    className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
+                  >
+                    Wieder sperren 🔒
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleExportJson}
+                    className="px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Backup herunterladen (JSON)</span>
+                  </button>
+
+                  <label className="px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer">
+                    <Upload className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Backup einspielen</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportJson}
+                      className="hidden"
+                    />
+                  </label>
+
+                  <a
+                    href="/download-zip"
+                    download="vtv-freier-grund-kick.zip"
+                    className="px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900/90 rounded-xl border border-emerald-700/80 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>📦 Projekt-ZIP (Render/GitHub)</span>
+                  </a>
+                </div>
+
+                {/* Reset to 12 original players */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  {showResetConfirm ? (
+                    <div className="p-3 bg-rose-950/60 border border-rose-800 rounded-xl space-y-2">
+                      <p className="text-xs text-rose-200">
+                        Möchtest du wirklich alle Spiele löschen und die 12 Original-Spieler neu anlegen?
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleReset}
+                          disabled={isResetting}
+                          className="px-3 py-1.5 text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 rounded-lg"
+                        >
+                          Ja, alles zurücksetzen
+                        </button>
+                        <button
+                          onClick={() => setShowResetConfirm(false)}
+                          className="px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowResetConfirm(true)}
+                      className="text-xs text-slate-400 hover:text-rose-400 flex items-center gap-1.5 transition-colors"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Auf Standard-Spielerkader (12 Spieler) zurücksetzen</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -279,6 +304,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Admin PIN Modal */}
+      <AdminPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onSuccess={() => {
+          setAdminUnlocked(true);
+        }}
+        title="Admin-PIN eingeben"
+        description="Bitte gib den 5-stelligen PIN ein, um Backups herunterzuladen, einzuspielen oder die App zu verwalten."
+      />
     </div>
   );
 };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Trash2, Edit3, Calendar, Clock, Trophy, XCircle, CheckCircle, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Trash2, Edit3, Calendar, Trophy, XCircle, CheckCircle, ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import { AppData, Match, Player } from '../types';
+import { AdminPinModal } from './AdminPinModal';
+import { isAdminAuthenticated } from '../utils/adminAuth';
 
 interface MatchHistoryProps {
   data: AppData;
@@ -19,6 +21,12 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
 }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pendingAdminAction, setPendingAdminAction] = useState<{
+    type: 'edit' | 'delete';
+    match?: Match;
+    matchId?: string;
+  } | null>(null);
 
   const playerMap = new Map<string, Player>();
   data.players.forEach((p) => playerMap.set(p.id, p));
@@ -33,10 +41,39 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     }
   };
 
+  const handleRequestEdit = (match: Match) => {
+    if (isAdminAuthenticated()) {
+      onEditMatch(match);
+    } else {
+      setPendingAdminAction({ type: 'edit', match });
+      setIsPinModalOpen(true);
+    }
+  };
+
+  const handleRequestDeleteClick = (matchId: string) => {
+    if (isAdminAuthenticated()) {
+      setDeleteConfirmId(matchId);
+    } else {
+      setPendingAdminAction({ type: 'delete', matchId });
+      setIsPinModalOpen(true);
+    }
+  };
+
+  const handlePinSuccess = () => {
+    if (!pendingAdminAction) return;
+    if (pendingAdminAction.type === 'edit' && pendingAdminAction.match) {
+      onEditMatch(pendingAdminAction.match);
+    } else if (pendingAdminAction.type === 'delete' && pendingAdminAction.matchId) {
+      setDeleteConfirmId(pendingAdminAction.matchId);
+    }
+    setPendingAdminAction(null);
+  };
+
   const matches = data.matches;
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-900 border border-slate-800 rounded-2xl">
         <div>
           <button
@@ -50,32 +87,31 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
             Spielprotokoll & Historie
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Chronologische Aufzeichnung aller absolvierten Partien (bis 10 Tore).
+            Chronologische Liste aller live erfassten Partien bis 10 Tore. (Bearbeiten & Löschen PIN-geschützt)
           </p>
         </div>
 
         <button
           onClick={onOpenNewMatch}
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap min-h-[40px]"
+          className="px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors shrink-0"
         >
-          + Spiel eintragen
+          + Neues Spiel erfassen
         </button>
       </div>
 
+      {/* List */}
       {matches.length === 0 ? (
-        <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-2xl">
-          <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-white mb-1">
-            Noch keine Spiele eingetragen
-          </h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto mb-4">
-            Sobald ihr das erste Spiel bis 10 beendet habt, tippt auf "Spiel eintragen" und markiert das Verliererteam.
+        <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+          <Calendar className="w-10 h-10 text-slate-600 mx-auto" />
+          <h3 className="text-base font-semibold text-white">Noch keine Spiele eingetragen</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Sobald am Dienstag die ersten Partien bis 10 Tore gespielt werden, tauchen sie hier detailliert mit Gewinnern und Verlierern auf.
           </p>
           <button
             onClick={onOpenNewMatch}
-            className="px-4 py-2 text-xs font-medium text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl transition-all"
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
           >
-            Erstes Spiel erfassen
+            Erstes Spiel eintragen
           </button>
         </div>
       ) : (
@@ -98,10 +134,6 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                 year: 'numeric',
               });
             }
-            const timeFormatted = new Date(match.timestamp).toLocaleTimeString('de-DE', {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
 
             const losers = match.loserIds.map((id) => playerMap.get(id)?.name || 'Unbekannt');
             const winners = match.winnerIds.map((id) => playerMap.get(id)?.name || 'Unbekannt');
@@ -111,15 +143,13 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                 key={match.id}
                 className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 hover:border-slate-700 transition-colors"
               >
-                {/* Top Info */}
+                {/* Top Info: Date ONLY (No time) */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded-md">
                       #{matches.length - idx}
                     </span>
                     <span className="text-slate-300 font-medium">{dateFormatted}</span>
-                    <span className="text-slate-500">·</span>
-                    <span className="text-slate-400 font-mono">{timeFormatted} Uhr</span>
                     <span className="text-slate-500">·</span>
                     {(() => {
                       const lCount = match.loserIds.length;
@@ -158,34 +188,29 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                         );
                       }
                       return (
-                        <span className="bg-slate-800 border border-slate-700/60 text-slate-200 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
-                          {lCount} vs {wCount}
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          {wCount} gegen {lCount}
                         </span>
                       );
                     })()}
-                    {match.note && (
-                      <>
-                        <span className="text-slate-500">·</span>
-                        <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">
-                          {match.note}
-                        </span>
-                      </>
-                    )}
                   </div>
 
+                  {/* Actions: Edit & Delete (Protected with PIN 57290) */}
                   {deleteConfirmId === match.id ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-rose-300">Wirklich löschen?</span>
+                    <div className="flex items-center gap-2 animate-in fade-in">
+                      <span className="text-[11px] text-rose-400 font-medium hidden sm:inline">
+                        Wirklich löschen?
+                      </span>
                       <button
                         onClick={() => handleDelete(match.id)}
                         disabled={isDeleting}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-rose-600 text-white hover:bg-rose-500 rounded-lg"
+                        className="px-2.5 py-1 text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors"
                       >
-                        Ja
+                        {isDeleting ? 'Lösche...' : 'Ja, löschen'}
                       </button>
                       <button
                         onClick={() => setDeleteConfirmId(null)}
-                        className="px-2 py-1 text-[11px] text-slate-400 hover:text-white"
+                        className="px-2 py-1 text-xs text-slate-400 hover:text-white"
                       >
                         Abbrechen
                       </button>
@@ -193,16 +218,16 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                   ) : (
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => onEditMatch(match)}
-                        title="Spiel nachträglich bearbeiten"
-                        className="px-2.5 py-1 text-xs text-slate-300 hover:text-emerald-400 bg-slate-800 hover:bg-slate-700/80 rounded-lg transition-colors flex items-center gap-1"
+                        onClick={() => handleRequestEdit(match)}
+                        title="Spiel bearbeiten (PIN erforderlich)"
+                        className="px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 flex items-center gap-1.5 transition-colors"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Bearbeiten</span>
                       </button>
                       <button
-                        onClick={() => setDeleteConfirmId(match.id)}
-                        title="Spiel löschen"
+                        onClick={() => handleRequestDeleteClick(match.id)}
+                        title="Spiel löschen (PIN erforderlich)"
                         className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -260,6 +285,18 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
           })}
         </div>
       )}
+
+      {/* Admin PIN Modal */}
+      <AdminPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingAdminAction(null);
+        }}
+        onSuccess={handlePinSuccess}
+        title="Admin-PIN eingeben"
+        description="Um vergangene Spiele nachträglich zu bearbeiten oder zu löschen, ist der 5-stellige Admin-PIN erforderlich."
+      />
     </div>
   );
 };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Users, ArrowLeft, Check, X, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Users, ArrowLeft, Check, X, ShieldAlert, Lock } from 'lucide-react';
 import { AppData, Player } from '../types';
+import { AdminPinModal } from './AdminPinModal';
+import { isAdminAuthenticated } from '../utils/adminAuth';
 
 interface PlayersViewProps {
   data: AppData;
@@ -19,15 +21,18 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'add' | 'delete';
+    playerName?: string;
+    playerId?: string;
+  } | null>(null);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPlayerName.trim()) return;
-
+  const executeAdd = async (name: string) => {
     try {
       setIsAdding(true);
       setErrorMsg(null);
-      await onAddPlayer(newPlayerName.trim());
+      await onAddPlayer(name);
       setNewPlayerName('');
     } catch (err: any) {
       setErrorMsg(err.message || 'Fehler beim Hinzufügen');
@@ -36,13 +41,45 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const executeDelete = async (id: string) => {
     try {
       await onDeletePlayer(id);
       setConfirmDeleteId(null);
     } catch (err: any) {
       setErrorMsg(err.message || 'Fehler beim Löschen');
     }
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = newPlayerName.trim();
+    if (!cleanName) return;
+
+    if (isAdminAuthenticated()) {
+      executeAdd(cleanName);
+    } else {
+      setPendingAction({ type: 'add', playerName: cleanName });
+      setIsPinModalOpen(true);
+    }
+  };
+
+  const handleDeleteRequest = (id: string) => {
+    if (isAdminAuthenticated()) {
+      setConfirmDeleteId(id);
+    } else {
+      setPendingAction({ type: 'delete', playerId: id });
+      setIsPinModalOpen(true);
+    }
+  };
+
+  const handlePinSuccess = () => {
+    if (!pendingAction) return;
+    if (pendingAction.type === 'add' && pendingAction.playerName) {
+      executeAdd(pendingAction.playerName);
+    } else if (pendingAction.type === 'delete' && pendingAction.playerId) {
+      setConfirmDeleteId(pendingAction.playerId);
+    }
+    setPendingAction(null);
   };
 
   return (
@@ -61,7 +98,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
             Spielerkader ({data.players.length})
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Verwalte eure feste Dienstagstruppe oder füge Gastspieler hinzu.
+            Eure Stammspieler beim Dienstagskick. (Veränderungen PIN-geschützt)
           </p>
         </div>
       </div>
@@ -74,12 +111,12 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
       )}
 
       {/* Add Player Bar */}
-      <form onSubmit={handleAdd} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex gap-3">
+      <form onSubmit={handleAddSubmit} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex gap-3">
         <input
           type="text"
           value={newPlayerName}
           onChange={(e) => setNewPlayerName(e.target.value)}
-          placeholder="Neuen Spieler hinzufügen (z. B. Gastspieler)"
+          placeholder="Neuen Spieler hinzufügen (PIN 57290 erforderlich)"
           className="flex-1 px-4 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
         />
         <button
@@ -95,8 +132,8 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
       {/* Players List Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.players.map((player, idx) => {
-          const matchCount = data.matches.filter((m) => m.participantIds.includes(player.id)).length;
-          const lossCount = data.matches.filter((m) => m.loserIds.includes(player.id)).length;
+          const matchCount = (player.historicalStats?.games || 0) + data.matches.filter((m) => m.participantIds.includes(player.id)).length;
+          const lossCount = (player.historicalStats?.losses || 0) + data.matches.filter((m) => m.loserIds.includes(player.id)).length;
 
           return (
             <div
@@ -122,7 +159,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
               {confirmDeleteId === player.id ? (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => handleDelete(player.id)}
+                    onClick={() => executeDelete(player.id)}
                     className="p-1.5 text-rose-400 hover:bg-rose-950/50 rounded-lg text-xs font-bold"
                     title="Löschen bestätigen"
                   >
@@ -138,8 +175,8 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
                 </div>
               ) : (
                 <button
-                  onClick={() => setConfirmDeleteId(player.id)}
-                  title="Spieler entfernen"
+                  onClick={() => handleDeleteRequest(player.id)}
+                  title="Spieler entfernen (PIN erforderlich)"
                   className="p-2 text-slate-500 hover:text-rose-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -149,6 +186,18 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           );
         })}
       </div>
+
+      {/* Admin PIN Modal */}
+      <AdminPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingAction(null);
+        }}
+        onSuccess={handlePinSuccess}
+        title="Admin-PIN eingeben"
+        description="Um Spieler hinzuzufügen oder aus dem Kader zu entfernen, ist der 5-stellige Admin-PIN erforderlich."
+      />
     </div>
   );
 };

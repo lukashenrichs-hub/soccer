@@ -3,7 +3,8 @@ import { Calendar, Plus } from 'lucide-react';
 
 interface HeroSectionProps {
   totalMatches: number;
-  todayMatchesCount: number;
+  monthMatchesCount: number;
+  monthName?: string;
   activePlayersCount: number;
   onOpenNewMatch: () => void;
   onOpenShare: () => void;
@@ -11,7 +12,8 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   totalMatches,
-  todayMatchesCount,
+  monthMatchesCount,
+  monthName,
   activePlayersCount,
   onOpenNewMatch,
 }) => {
@@ -100,23 +102,31 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Quick KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-8 pt-6 border-t border-slate-800/80">
           <div className="p-3 bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl">
-            <span className="text-xs text-slate-400 block mb-1">Gesamtspiele (All-Time)</span>
+            <span className="text-xs text-slate-400 block mb-1">Gesamtspiele seit März 2026</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-white">
                 {totalMatches}
               </span>
               <span className="text-xs text-slate-400 font-medium">Spiele</span>
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+              73 historisch + {Math.max(0, totalMatches - 73)} neue
+            </span>
           </div>
 
           <div className="p-3 bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl">
-            <span className="text-xs text-slate-400 block mb-1">Heute gespielt</span>
+            <span className="text-xs text-slate-400 block mb-1">
+              {monthName ? `Im ${monthName} gespielt` : 'Diesen Monat gespielt'}
+            </span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-emerald-400">
-                {todayMatchesCount}
+                {monthMatchesCount}
               </span>
               <span className="text-xs text-slate-400 font-medium">Partien</span>
             </div>
+            <span className="text-[10px] text-emerald-400/80 font-medium block mt-0.5">
+              Monats-Aktivität
+            </span>
           </div>
 
           <div className="col-span-2 sm:col-span-1 p-3 bg-slate-900/60 backdrop-blur-sm border border-slate-800 rounded-2xl">
@@ -127,6 +137,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </span>
               <span className="text-xs text-slate-400 font-medium">Spieler</span>
             </div>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              Aktive Kicker
+            </span>
           </div>
         </div>
       </div>

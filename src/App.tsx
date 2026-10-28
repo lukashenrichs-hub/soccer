@@ -116,9 +116,19 @@ export default function App() {
     );
   }
 
-  // Compute today's match count
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayMatchesCount = data.matches.filter((m) => m.sessionDate === todayStr).length;
+  // Calculate total games: 73 historical + live matches
+  const historicalMatches = data.historicalTotalMatches || 73;
+  const totalGamesCount = historicalMatches + data.matches.length;
+
+  // Compute monthly match count (current month)
+  const currentMonthPrefix = new Date().toISOString().slice(0, 7);
+  const currentMonthName = new Date().toLocaleDateString('de-DE', { month: 'long' });
+  const monthMatchesCount = data.matches.filter((m) => {
+    const matchMonth = m.sessionDate
+      ? m.sessionDate.slice(0, 7)
+      : new Date(m.timestamp).toISOString().slice(0, 7);
+    return matchMonth === currentMonthPrefix;
+  }).length;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-24 md:pb-12">
@@ -144,8 +154,9 @@ export default function App() {
         {activeTab === 'stats' && (
           <>
             <HeroSection
-              totalMatches={data.matches.length}
-              todayMatchesCount={todayMatchesCount}
+              totalMatches={totalGamesCount}
+              monthMatchesCount={monthMatchesCount}
+              monthName={currentMonthName}
               activePlayersCount={data.players.length}
               onOpenNewMatch={handleOpenNewMatch}
               onOpenShare={() => setIsShareModalOpen(true)}
