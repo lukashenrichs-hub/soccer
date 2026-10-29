@@ -338,7 +338,15 @@ app.post('/api/import', requireAdminPin, (req, res) => {
 app.get('/download-zip', (_req, res) => {
   const zipPath = path.resolve(process.cwd(), 'public/vtv-dienstagskick.zip');
   if (fs.existsSync(zipPath)) {
-    res.download(zipPath, 'vtv-freier-grund-kick.zip');
+    const stat = fs.statSync(zipPath);
+    res.writeHead(200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename="vtv-freier-grund-kick.zip"',
+      'Content-Length': stat.size,
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+    });
+    fs.createReadStream(zipPath).pipe(res);
   } else {
     res.status(404).send('ZIP file not found.');
   }

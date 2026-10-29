@@ -1,5 +1,4 @@
-import React from 'react';
-import { Calendar, Plus } from 'lucide-react';
+import { Calendar, Plus, Share2 } from 'lucide-react';
 
 interface HeroSectionProps {
   totalMatches: number;
@@ -16,6 +15,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   monthName,
   activePlayersCount,
   onOpenNewMatch,
+  onOpenShare,
 }) => {
   return (
     <div className="relative overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 shadow-xl mb-8">
@@ -76,6 +76,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
                 Neues Spiel eintragen
+              </button>
+
+              <button
+                onClick={onOpenShare}
+                className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 bg-slate-800/90 hover:bg-slate-700 active:scale-[0.98] rounded-xl border border-slate-700/80 transition-all min-h-[44px]"
+              >
+                <Share2 className="w-4 h-4 text-emerald-400" />
+                <span>Teilen & Backup</span>
               </button>
             </div>
           </div>

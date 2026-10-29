@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Copy, Download, RefreshCw, Send, Share2, Upload, X, Lock, Unlock } from 'lucide-react';
 import { AppData } from '../types';
 import { generateWhatsAppReport } from '../utils/stats';
@@ -26,15 +26,37 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [isResetting, setIsResetting] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(() => isAdminAuthenticated());
+  const [downloadingZip, setDownloadingZip] = useState(false);
+
+  // Sync admin unlock state whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setAdminUnlocked(isAdminAuthenticated());
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  // Ensure public share URL (ais-pre-...) so teammates don't get 403 Forbidden!
-  const currentUrl = window.location.href.includes('ais-dev-')
-    ? window.location.href.replace('ais-dev-', 'ais-pre-')
-    : window.location.href;
+  // Safe fallback for URL
+  let currentUrl = '';
+  try {
+    currentUrl = typeof window !== 'undefined' && window.location.href.includes('ais-dev-')
+      ? window.location.href.replace('ais-dev-', 'ais-pre-')
+      : typeof window !== 'undefined'
+        ? window.location.href
+        : '';
+  } catch {
+    currentUrl = '';
+  }
 
-  const whatsappReport = generateWhatsAppReport(data);
+  // Safe generation of WhatsApp report
+  let whatsappReport = '';
+  try {
+    whatsappReport = generateWhatsAppReport(data);
+  } catch (err) {
+    console.error('Error generating WhatsApp report:', err);
+    whatsappReport = '⚽ VTV Freier Grund – Dienstagskick';
+  }
 
   const handleCopyLink = async () => {
     try {
@@ -53,6 +75,27 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       setTimeout(() => setCopiedWhatsapp(false), 2500);
     } catch {
       // fallback
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    try {
+      setDownloadingZip(true);
+      const res = await fetch('/download-zip', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Download fehlgeschlagen');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'vtv-freier-grund-kick.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.location.href = '/download-zip';
+    } finally {
+      setTimeout(() => setDownloadingZip(false), 1500);
     }
   };
 
@@ -101,20 +144,20 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 my-8 flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-5 sm:p-7 my-6 flex flex-col">
         {/* Header */}
         <div className="flex items-start justify-between pb-4 border-b border-slate-800">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1">
               <Share2 className="w-3.5 h-3.5" />
-              <span>LINK TEILEN & EXPORT</span>
+              <span>TEILEN, WHATSAPP & BACKUP</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Mitspieler einladen
+              Teilen & Verwaltung
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Sende diesen Link in eure Gruppe. Jeder kann live eintragen und mitverfolgen!
+              Link für Mitspieler teilen, WhatsApp-Tabelle kopieren oder Admin-Backups ziehen.
             </p>
           </div>
           <button
@@ -126,7 +169,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="py-4 space-y-5">
+        <div className="py-4 space-y-4">
           {/* Direct URL Share Box */}
           <div className="p-4 bg-slate-800/80 border border-slate-700 rounded-2xl space-y-2">
             <span className="text-xs font-semibold text-slate-300 block">
@@ -161,7 +204,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-emerald-400/90 font-medium">
-              ⚡ Öffentlicher Link: Funktioniert für alle Mitspieler ohne Google-Login.
+              ⚡ Öffentlicher Link: Funktioniert direkt für alle ohne Login.
             </p>
           </div>
 
@@ -174,12 +217,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               </span>
               <span className="text-[10px] text-slate-400">Direkt zum Versenden</span>
             </div>
-            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed select-all">
+            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 font-mono text-[11px] text-slate-300 whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed select-all">
               {whatsappReport}
             </div>
             <button
               onClick={handleCopyWhatsapp}
-              className="w-full py-2 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-600 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-2.5 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-600 active:scale-[0.99] rounded-xl flex items-center justify-center gap-2 transition-all"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>{copiedWhatsapp ? 'In Zwischenablage kopiert! ✓' : 'WhatsApp-Text kopieren'}</span>
@@ -191,29 +234,30 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             {!adminUnlocked ? (
               <div className="p-4 bg-slate-950/80 border border-slate-800/90 rounded-2xl flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400">
-                    <Lock className="w-4 h-4 text-amber-400" />
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                    <Lock className="w-4 h-4" />
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">
-                      Admin-Bereich
+                      Admin-Bereich (PIN erforderlich)
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      Sicherung, Backup & Systemverwaltung (PIN-geschützt)
+                      Backups (JSON), Projekt-ZIP & Datenbankverwaltung
                     </span>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsPinModalOpen(true)}
-                  className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl border border-slate-700 transition-colors shrink-0"
+                  className="px-3.5 py-2 text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl transition-colors shrink-0"
                 >
                   PIN eingeben
                 </button>
               </div>
             ) : (
-              <div className="space-y-3 p-4 bg-slate-950/60 border border-emerald-900/40 rounded-2xl animate-in fade-in">
+              <div className="space-y-3 p-4 bg-slate-950/60 border border-emerald-900/50 rounded-2xl animate-in fade-in">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider">
                     <Unlock className="w-3.5 h-3.5 text-emerald-400" />
                     Admin-Bereich freigeschaltet
                   </span>
@@ -225,16 +269,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <button
+                    type="button"
                     onClick={handleExportJson}
-                    className="px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-2 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5 text-slate-400" />
                     <span>Backup herunterladen (JSON)</span>
                   </button>
 
-                  <label className="px-3 py-2 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer">
+                  <label className="px-3 py-2 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer">
                     <Upload className="w-3.5 h-3.5 text-slate-400" />
                     <span>Backup einspielen</span>
                     <input
@@ -245,14 +290,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     />
                   </label>
 
-                  <a
-                    href="/download-zip"
-                    download="vtv-freier-grund-kick.zip"
-                    className="px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900/90 rounded-xl border border-emerald-700/80 flex items-center gap-1.5 transition-colors"
+                  <button
+                    type="button"
+                    onClick={handleDownloadZip}
+                    disabled={downloadingZip}
+                    className="px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 rounded-xl border border-emerald-700/80 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>📦 Projekt-ZIP (Render/GitHub)</span>
-                  </a>
+                    <Download className={`w-3.5 h-3.5 text-emerald-400 ${downloadingZip ? 'animate-bounce' : ''}`} />
+                    <span>{downloadingZip ? 'Wird geladen...' : '📦 Projekt-ZIP (Render/GitHub)'}</span>
+                  </button>
                 </div>
 
                 {/* Reset to 12 original players */}
@@ -294,7 +340,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-slate-800 flex justify-end">
+        <div className="pt-3 border-t border-slate-800 flex justify-end">
           <button
             type="button"
             onClick={onClose}

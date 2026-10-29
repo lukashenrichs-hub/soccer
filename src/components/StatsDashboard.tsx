@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AppData, FilterOption, Match, PlayerStats, SortField, TeamModeFilter } from '../types';
 import { calculatePlayerStats, sortPlayerStats } from '../utils/stats';
+import { getPlayerTitle } from '../utils/playerTitles';
 
 interface StatsDashboardProps {
   data: AppData;
@@ -806,17 +807,24 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                       )}
                     </td>
 
-                    {/* Name & Badges */}
+                    {/* Name & Personal Title Badge */}
                     <td className="py-4 px-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
                           {stat.player.name}
                         </span>
-                        {isUnderdogHero && (
-                          <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/90 border border-amber-700/70 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <span>🔥</span> {stat.stats3v4.as3er.wins}x Unterzahl-Sieg
-                          </span>
-                        )}
+                        {(() => {
+                          const title = getPlayerTitle(stat, rawStats);
+                          return (
+                            <span
+                              title={title.description}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 shadow-sm ${title.bgColor} ${title.textColor} ${title.borderColor}`}
+                            >
+                              <span>{title.badge}</span>
+                              <span>{title.label}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </td>
 
@@ -1061,11 +1069,18 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                     <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs border border-emerald-500/30">
                       {stat.points} Pkt
                     </span>
-                    {stat.stats3v4.as3er.wins > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30">
-                        🔥 {stat.stats3v4.as3er.wins}x 3vs4
-                      </span>
-                    )}
+                    {(() => {
+                      const title = getPlayerTitle(stat, rawStats);
+                      return (
+                        <span
+                          title={title.description}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${title.bgColor} ${title.textColor} ${title.borderColor}`}
+                        >
+                          <span>{title.badge}</span>
+                          <span>{title.label}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-1 text-slate-400 text-xs shrink-0">
@@ -1165,17 +1180,28 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider block mb-1">
                   Spieler-Statistik & Spielformate
                 </span>
-                <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <span>{selectedPlayerStats.player.name}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-2xl font-bold text-white">
+                    {selectedPlayerStats.player.name}
+                  </h3>
                   <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold">
                     {selectedPlayerStats.points} Punkte
                   </span>
-                  {selectedPlayerStats.stats3v4.as3er.wins > 0 && (
-                    <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-medium">
-                      👑 {selectedPlayerStats.stats3v4.as3er.wins}x Unterzahl-Sieg
-                    </span>
-                  )}
-                </h3>
+                  {(() => {
+                    const title = getPlayerTitle(selectedPlayerStats, rawStats);
+                    return (
+                      <span
+                        className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${title.bgColor} ${title.textColor} ${title.borderColor}`}
+                      >
+                        <span>{title.badge}</span>
+                        <span>{title.label}</span>
+                      </span>
+                    );
+                  })()}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  {getPlayerTitle(selectedPlayerStats, rawStats).description}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedPlayerStats(null)}

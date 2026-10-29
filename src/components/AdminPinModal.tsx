@@ -48,7 +48,7 @@ export const AdminPinModal: React.FC<AdminPinModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in">
       <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">

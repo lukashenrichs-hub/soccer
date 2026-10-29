@@ -9,6 +9,7 @@ import { PlayersView } from './components/PlayersView';
 import { QuickMatchModal } from './components/QuickMatchModal';
 import { ShareModal } from './components/ShareModal';
 import { ColdStartLoading } from './components/ColdStartLoading';
+import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import { Match } from './types';
 import { 
   Trophy, 
@@ -16,7 +17,8 @@ import {
   Users, 
   Plus, 
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
+  const [celebrationMatch, setCelebrationMatch] = useState<Match | null>(null);
 
   const handleOpenNewMatch = () => {
     setEditingMatch(null);
@@ -59,10 +62,9 @@ export default function App() {
     note?: string;
   }) => {
     const newMatch = await addMatch(matchData);
-    setSaveSuccessToast('Spiel bis 10 Tore erfolgreich gewertet & gespeichert! ⚽');
-    setTimeout(() => {
-      setSaveSuccessToast(null);
-    }, 3500);
+    if (newMatch) {
+      setCelebrationMatch(newMatch);
+    }
     return newMatch;
   };
 
@@ -184,9 +186,9 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Navigation Bar (Clean 4-destination thumb layout) */}
+      {/* Mobile Fixed Bottom Navigation Bar (5-destination layout including Teilen & Backup) */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 pb-safe">
-        <div className="grid grid-cols-4 items-center h-16 px-2">
+        <div className="grid grid-cols-5 items-center h-16 px-1">
           <button
             onClick={() => setActiveTab('stats')}
             className={`flex flex-col items-center justify-center h-full transition-colors ${
@@ -194,17 +196,7 @@ export default function App() {
             }`}
           >
             <Trophy className="w-5 h-5" />
-            <span className="text-[11px] mt-1">Tabelle</span>
-          </button>
-
-          <button
-            onClick={handleOpenNewMatch}
-            className="flex flex-col items-center justify-center h-full text-emerald-400 font-semibold group -mt-3"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/40 ring-4 ring-slate-950 group-active:scale-95 transition-all">
-              <Plus className="w-6 h-6 stroke-[3]" />
-            </div>
-            <span className="text-[10px] text-emerald-400 mt-0.5 font-extrabold tracking-tight">Spiel eintragen</span>
+            <span className="text-[10px] mt-1">Tabelle</span>
           </button>
 
           <button
@@ -214,7 +206,17 @@ export default function App() {
             }`}
           >
             <History className="w-5 h-5" />
-            <span className="text-[11px] mt-1">Spiele</span>
+            <span className="text-[10px] mt-1">Spiele</span>
+          </button>
+
+          <button
+            onClick={handleOpenNewMatch}
+            className="flex flex-col items-center justify-center h-full text-emerald-400 font-semibold group -mt-3"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/40 ring-4 ring-slate-950 group-active:scale-95 transition-all">
+              <Plus className="w-6 h-6 stroke-[3]" />
+            </div>
+            <span className="text-[9px] text-emerald-400 mt-0.5 font-extrabold tracking-tight">Eintragen</span>
           </button>
 
           <button
@@ -224,7 +226,15 @@ export default function App() {
             }`}
           >
             <Users className="w-5 h-5" />
-            <span className="text-[11px] mt-1">Kader</span>
+            <span className="text-[10px] mt-1">Kader</span>
+          </button>
+
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex flex-col items-center justify-center h-full transition-colors text-slate-400 hover:text-emerald-300"
+          >
+            <Share2 className="w-5 h-5 text-emerald-400" />
+            <span className="text-[10px] mt-1">Teilen</span>
           </button>
         </div>
       </div>
@@ -250,6 +260,12 @@ export default function App() {
         data={data}
         onResetSeed={resetSeed}
         onImportData={importData}
+      />
+
+      <MatchCelebrationModal
+        match={celebrationMatch}
+        players={data.players}
+        onClose={() => setCelebrationMatch(null)}
       />
     </div>
   );
