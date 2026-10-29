@@ -11,6 +11,7 @@ interface ShareModalProps {
   data: AppData;
   onResetSeed: () => Promise<any>;
   onImportData: (data: Partial<AppData>) => Promise<any>;
+  onEmergencyScanAndRestore?: () => Promise<number>;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -19,6 +20,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   data,
   onResetSeed,
   onImportData,
+  onEmergencyScanAndRestore,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
@@ -27,6 +29,26 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(() => isAdminAuthenticated());
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const [restoringEmergency, setRestoringEmergency] = useState(false);
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+
+  const handleEmergencyRestore = async () => {
+    if (!onEmergencyScanAndRestore) return;
+    try {
+      setRestoringEmergency(true);
+      setRestoreMessage(null);
+      const recoveredCount = await onEmergencyScanAndRestore();
+      if (recoveredCount > 0) {
+        setRestoreMessage(`🎉 ${recoveredCount} Spiel(e) erfolgreich im Browser-Speicher gefunden und wiederhergestellt!`);
+      } else {
+        setRestoreMessage('Keine ungesicherten Spiele im Browser-Speicher dieses Geräts gefunden.');
+      }
+    } catch {
+      setRestoreMessage('Fehler bei der Wiederherstellung.');
+    } finally {
+      setRestoringEmergency(false);
+    }
+  };
 
   // Sync admin unlock state whenever modal opens
   useEffect(() => {
@@ -299,7 +321,25 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     <Download className={`w-3.5 h-3.5 text-emerald-400 ${downloadingZip ? 'animate-bounce' : ''}`} />
                     <span>{downloadingZip ? 'Wird geladen...' : '📦 Projekt-ZIP (Render/GitHub)'}</span>
                   </button>
+
+                  {onEmergencyScanAndRestore && (
+                    <button
+                      type="button"
+                      onClick={handleEmergencyRestore}
+                      disabled={restoringEmergency}
+                      className="px-3 py-2 text-xs font-semibold text-amber-300 bg-amber-950/80 hover:bg-amber-900 rounded-xl border border-amber-600/70 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${restoringEmergency ? 'animate-spin' : ''}`} />
+                      <span>{restoringEmergency ? 'Suche im Speicher...' : '🔍 Spiele aus Handy-Speicher retten'}</span>
+                    </button>
+                  )}
                 </div>
+
+                {restoreMessage && (
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/50 text-emerald-300 text-xs font-medium animate-in fade-in">
+                    {restoreMessage}
+                  </div>
+                )}
 
                 {/* Reset to 12 original players */}
                 <div className="pt-2 border-t border-slate-800/80">

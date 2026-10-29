@@ -145,6 +145,44 @@ function saveData(data: AppData): void {
 // In-memory cache loaded once on start
 let appData: AppData = loadData();
 
+// Health & Keepalive endpoint (can be pinged by free cron/uptime services to prevent Render sleep)
+app.get('/api/ping', (_req, res) => {
+  res.json({
+    status: 'ok',
+    app: 'vtv-dienstagskick',
+    matchesCount: appData.matches.length,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Non-destructive auto-sync: merges client matches with server matches by ID
+app.post('/api/sync', (req, res) => {
+  const { matches } = req.body;
+  if (!Array.isArray(matches)) {
+    return res.status(400).json({ error: 'matches must be an array' });
+  }
+
+  let mergedCount = 0;
+  const existingIds = new Set(appData.matches.map((m) => m.id));
+
+  for (const match of matches) {
+    if (match && match.id && !existingIds.has(match.id)) {
+      appData.matches.push(match);
+      existingIds.add(match.id);
+      mergedCount++;
+    }
+  }
+
+  if (mergedCount > 0) {
+    // Keep matches sorted newest first
+    appData.matches.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    saveData(appData);
+    console.log(`[Auto-Sync] Merged ${mergedCount} matches from client. Total now: ${appData.matches.length}`);
+  }
+
+  res.json({ success: true, mergedCount, totalMatches: appData.matches.length, state: appData });
+});
+
 // API Routes
 app.get('/api/state', (_req, res) => {
   res.json(appData);

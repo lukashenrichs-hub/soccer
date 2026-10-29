@@ -36,6 +36,7 @@ export default function App() {
     deletePlayer,
     resetSeed,
     importData,
+    emergencyScanAndRestore,
   } = useFootballData();
 
   const [activeTab, setActiveTab] = useState<'stats' | 'history' | 'players'>('stats');
@@ -260,6 +261,7 @@ export default function App() {
         data={data}
         onResetSeed={resetSeed}
         onImportData={importData}
+        onEmergencyScanAndRestore={emergencyScanAndRestore}
       />
 
       <MatchCelebrationModal

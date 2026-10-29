@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppData, Match, Player } from '../types';
 
 const STORAGE_KEY = 'vtv_freier_grund_data_cache';
+const PERMANENT_MATCHES_KEY = 'vtv_permanent_matches_history';
 
 const HISTORICAL_BASELINES: Record<string, { games: number; losses: number; wins: number }> = {
   'Sandro': { games: 73, losses: 39, wins: 34 },
@@ -19,13 +20,63 @@ const HISTORICAL_BASELINES: Record<string, { games: number; losses: number; wins
   'Robin': { games: 4, losses: 2, wins: 2 },
 };
 
+export function getKnownMatches(): Match[] {
+  const matchesMap = new Map<string, Match>();
+  try {
+    // 1. From permanent matches archive
+    const permRaw = localStorage.getItem(PERMANENT_MATCHES_KEY);
+    if (permRaw) {
+      const parsed: Match[] = JSON.parse(permRaw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((m) => {
+          if (m && m.id) matchesMap.set(m.id, m);
+        });
+      }
+    }
+
+    // 2. From standard cache
+    const cacheRaw = localStorage.getItem(STORAGE_KEY);
+    if (cacheRaw) {
+      const parsed: AppData = JSON.parse(cacheRaw);
+      if (parsed && Array.isArray(parsed.matches)) {
+        parsed.matches.forEach((m) => {
+          if (m && m.id) matchesMap.set(m.id, m);
+        });
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return Array.from(matchesMap.values()).sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+}
+
+export function saveKnownMatches(matches: Match[]) {
+  try {
+    const existing = getKnownMatches();
+    const map = new Map<string, Match>();
+    existing.forEach((m) => map.set(m.id, m));
+    matches.forEach((m) => map.set(m.id, m));
+
+    const combined = Array.from(map.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    localStorage.setItem(PERMANENT_MATCHES_KEY, JSON.stringify(combined));
+    return combined;
+  } catch {
+    return matches;
+  }
+}
+
 function getLocalBackup(): AppData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && Array.isArray(parsed.matches) && Array.isArray(parsed.players)) {
-      // Ensure historical stats are present
+    if (parsed && Array.isArray(parsed.players)) {
       parsed.players.forEach((p: Player) => {
         if (!p.historicalStats && HISTORICAL_BASELINES[p.name]) {
           p.historicalStats = HISTORICAL_BASELINES[p.name];
@@ -34,9 +85,14 @@ function getLocalBackup(): AppData | null {
       if (!parsed.historicalTotalMatches) {
         parsed.historicalTotalMatches = 73;
       }
+      // Ensure all known permanent matches are attached
+      const allKnown = getKnownMatches();
+      if (allKnown.length > (parsed.matches?.length || 0)) {
+        parsed.matches = allKnown;
+      }
       return parsed as AppData;
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
   return null;
@@ -45,7 +101,10 @@ function getLocalBackup(): AppData | null {
 function saveLocalBackup(state: AppData) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
+    if (Array.isArray(state.matches) && state.matches.length > 0) {
+      saveKnownMatches(state.matches);
+    }
+  } catch {
     // ignore
   }
 }
@@ -64,37 +123,56 @@ export function useFootballData() {
       const res = await fetch('/api/state');
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const json: AppData = await res.json();
+
       if (isMountedRef.current) {
-        // RESILIENT AUTO-RECOVERY CHECK:
-        // If server lost matches due to container sleep/restart (e.g. Render free tier),
-        // but this browser has saved matches in localStorage:
-        const local = getLocalBackup();
-        if (json.matches.length === 0 && local && local.matches.length > 0) {
-          console.warn('[Auto-Recovery] Server restarted empty. Restoring cached matches to server...');
-          fetch('/api/import', {
+        const localMatches = getKnownMatches();
+        const serverMatches = json.matches || [];
+
+        // Identify matches present in local storage that server doesn't have
+        const serverIds = new Set(serverMatches.map((m) => m.id));
+        const missingOnServer = localMatches.filter((m) => !serverIds.has(m.id));
+
+        if (missingOnServer.length > 0) {
+          console.warn(`[Auto-Recovery] Found ${missingOnServer.length} local matches missing on server. Auto-syncing...`);
+          // Push missing matches to server non-destructively
+          fetch('/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(local),
+            body: JSON.stringify({ matches: localMatches }),
           })
             .then(async (r) => {
               if (r.ok) {
-                const restored = await r.json();
-                if (isMountedRef.current && restored.state) {
-                  setData(restored.state);
-                  lastUpdatedRef.current = restored.state.lastUpdated;
-                  saveLocalBackup(restored.state);
+                const syncRes = await r.json();
+                if (isMountedRef.current && syncRes.state) {
+                  setData(syncRes.state);
+                  lastUpdatedRef.current = syncRes.state.lastUpdated;
+                  saveLocalBackup(syncRes.state);
                 }
               }
             })
             .catch(console.error);
 
-          setData(local);
+          // In the meantime, use merged state on client
+          const mergedMap = new Map<string, Match>();
+          serverMatches.forEach((m) => mergedMap.set(m.id, m));
+          localMatches.forEach((m) => mergedMap.set(m.id, m));
+          const mergedList = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          const mergedState: AppData = {
+            ...json,
+            matches: mergedList,
+          };
+          setData(mergedState);
+          saveLocalBackup(mergedState);
         } else {
-          // Normal sync: keep local backup in sync with latest server state
-          if (json.matches.length >= (local?.matches.length || 0)) {
-            saveLocalBackup(json);
+          // Server has all matches
+          if (serverMatches.length > 0) {
+            saveKnownMatches(serverMatches);
           }
-          if (json.lastUpdated !== lastUpdatedRef.current) {
+          saveLocalBackup(json);
+          if (json.lastUpdated !== lastUpdatedRef.current || !data) {
             lastUpdatedRef.current = json.lastUpdated;
             setData(json);
           }
@@ -104,7 +182,6 @@ export function useFootballData() {
     } catch (err: any) {
       if (isMountedRef.current) {
         console.error('Failed to fetch state:', err);
-        // Fallback to local storage if offline
         const local = getLocalBackup();
         if (local && !data) {
           setData(local);
@@ -115,7 +192,7 @@ export function useFootballData() {
         }
       }
     }
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -124,7 +201,7 @@ export function useFootballData() {
     // Live background polling for multi-device sync
     const interval = setInterval(() => {
       fetchState(true);
-    }, 3500);
+    }, 4000);
 
     return () => {
       isMountedRef.current = false;
@@ -152,31 +229,42 @@ export function useFootballData() {
       }
 
       const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
+      const updatedState = resJson.state as AppData;
+      setData(updatedState);
+      saveLocalBackup(updatedState);
       return resJson.match as Match;
     } finally {
       setIsSaving(false);
     }
   };
 
-  const deleteMatch = async (id: string) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch(`/api/matches/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-pin': '57290' },
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Fehler beim Löschen');
-      }
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-    } finally {
-      setIsSaving(false);
+  const deleteMatch = async (id: string, pin: string = '57290') => {
+    const res = await fetch(`/api/matches/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-admin-pin': pin,
+      },
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Löschen des Spiels');
     }
+
+    const resJson = await res.json();
+    const updatedState = resJson.state as AppData;
+
+    // Also remove from permanent matches cache so it doesn't auto-restore
+    try {
+      const remaining = getKnownMatches().filter((m) => m.id !== id);
+      localStorage.setItem(PERMANENT_MATCHES_KEY, JSON.stringify(remaining));
+    } catch {
+      // ignore
+    }
+
+    setData(updatedState);
+    saveLocalBackup(updatedState);
+    return true;
   };
 
   const editMatch = async (
@@ -184,125 +272,171 @@ export function useFootballData() {
     matchData: {
       participantIds?: string[];
       loserIds?: string[];
+      sessionDate?: string;
       note?: string;
-    }
+    },
+    pin: string = '57290'
   ) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch(`/api/matches/${id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-admin-pin': '57290',
-        },
-        body: JSON.stringify(matchData),
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Fehler beim Bearbeiten des Spiels');
-      }
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-      return resJson.match as Match;
-    } finally {
-      setIsSaving(false);
+    const res = await fetch(`/api/matches/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-pin': pin,
+      },
+      body: JSON.stringify(matchData),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Aktualisieren des Spiels');
     }
+
+    const resJson = await res.json();
+    const updatedState = resJson.state as AppData;
+    setData(updatedState);
+    saveLocalBackup(updatedState);
+    return resJson.match as Match;
   };
 
   const updateAttendees = async (attendeeIds: string[]) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch('/api/attendees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attendeeIds }),
-      });
-      if (!res.ok) throw new Error('Fehler beim Aktualisieren der Anwesenheit');
-      setData((prev) => {
-        if (!prev) return prev;
-        const updated = { ...prev, activeAttendeeIds: attendeeIds };
-        saveLocalBackup(updated);
-        return updated;
-      });
-    } finally {
-      setIsSaving(false);
+    const res = await fetch('/api/attendees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attendeeIds }),
+    });
+
+    if (res.ok) {
+      setData((prev) => (prev ? { ...prev, activeAttendeeIds: attendeeIds } : null));
     }
   };
 
-  const addPlayer = async (name: string) => {
+  const addPlayer = async (name: string, pin: string = '57290') => {
+    const res = await fetch('/api/players', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-pin': pin,
+      },
+      body: JSON.stringify({ name }),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Hinzufügen des Spielers');
+    }
+
+    const resJson = await res.json();
+    setData(resJson.state);
+    saveLocalBackup(resJson.state);
+  };
+
+  const deletePlayer = async (id: string, pin: string = '57290') => {
+    const res = await fetch(`/api/players/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-admin-pin': pin,
+      },
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Entfernen des Spielers');
+    }
+
+    const resJson = await res.json();
+    setData(resJson.state);
+    saveLocalBackup(resJson.state);
+  };
+
+  const resetSeed = async (pin: string = '57290') => {
+    const res = await fetch('/api/reset-seed', {
+      method: 'POST',
+      headers: {
+        'x-admin-pin': pin,
+      },
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Zurücksetzen');
+    }
+
+    const resJson = await res.json();
+    localStorage.removeItem(PERMANENT_MATCHES_KEY);
+    setData(resJson.state);
+    saveLocalBackup(resJson.state);
+  };
+
+  const importData = async (importedData: Partial<AppData>, pin: string = '57290') => {
+    const res = await fetch('/api/import', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-pin': pin,
+      },
+      body: JSON.stringify(importedData),
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Importieren der Daten');
+    }
+
+    const resJson = await res.json();
+    setData(resJson.state);
+    saveLocalBackup(resJson.state);
+  };
+
+  // Emergency scanner: scans entire localStorage across all keys for matches
+  const emergencyScanAndRestore = async () => {
     try {
-      setIsSaving(true);
-      const res = await fetch('/api/players', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-admin-pin': '57290',
-        },
-        body: JSON.stringify({ name }),
-      });
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Fehler beim Hinzufügen des Spielers');
+      const foundMatchesMap = new Map<string, Match>();
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        try {
+          const val = localStorage.getItem(key);
+          if (!val) continue;
+          if (val.includes('"scoreTo"') || val.includes('"participantIds"')) {
+            const parsed = JSON.parse(val);
+            const matchesArr: Match[] = Array.isArray(parsed)
+              ? parsed
+              : Array.isArray(parsed.matches)
+              ? parsed.matches
+              : [];
+            matchesArr.forEach((m) => {
+              if (m && m.id && Array.isArray(m.loserIds)) {
+                foundMatchesMap.set(m.id, m);
+              }
+            });
+          }
+        } catch {
+          // ignore parsing error
+        }
       }
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-      return resJson.player as Player;
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
-  const deletePlayer = async (id: string) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch(`/api/players/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-pin': '57290' },
-      });
-      if (!res.ok) throw new Error('Fehler beim Löschen des Spielers');
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const resetSeed = async () => {
-    try {
-      setIsSaving(true);
-      const res = await fetch('/api/reset-seed', {
-        method: 'POST',
-        headers: { 'x-admin-pin': '57290' },
-      });
-      if (!res.ok) throw new Error('Fehler beim Zurücksetzen');
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const importData = async (imported: Partial<AppData>) => {
-    try {
-      setIsSaving(true);
-      const res = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-admin-pin': '57290',
-        },
-        body: JSON.stringify(imported),
-      });
-      if (!res.ok) throw new Error('Fehler beim Importieren');
-      const resJson = await res.json();
-      setData(resJson.state);
-      saveLocalBackup(resJson.state);
-    } finally {
-      setIsSaving(false);
+      const allRecovered = Array.from(foundMatchesMap.values());
+      if (allRecovered.length > 0) {
+        saveKnownMatches(allRecovered);
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matches: allRecovered }),
+        });
+        if (res.ok) {
+          const syncRes = await res.json();
+          if (syncRes.state) {
+            setData(syncRes.state);
+            saveLocalBackup(syncRes.state);
+            return allRecovered.length;
+          }
+        }
+      }
+      return allRecovered.length;
+    } catch (e) {
+      console.error('Emergency scan failed:', e);
+      return 0;
     }
   };
 
@@ -313,12 +447,13 @@ export function useFootballData() {
     isSaving,
     refresh: fetchState,
     addMatch,
-    editMatch,
     deleteMatch,
+    editMatch,
     updateAttendees,
     addPlayer,
     deletePlayer,
     resetSeed,
     importData,
+    emergencyScanAndRestore,
   };
 }
