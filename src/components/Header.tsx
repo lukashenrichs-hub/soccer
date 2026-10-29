@@ -1,11 +1,12 @@
-import React from 'react';
-import { Plus, Share2, Users, Trophy, History } from 'lucide-react';
+import { Plus, Share2, Users, Trophy, History, Sun, Moon } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'stats' | 'history' | 'players';
   setActiveTab: (tab: 'stats' | 'history' | 'players') => void;
   onOpenNewMatch: () => void;
   onOpenShare: () => void;
+  theme?: 'dark' | 'light';
+  onToggleTheme?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -13,6 +14,8 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenNewMatch,
   onOpenShare,
+  theme = 'dark',
+  onToggleTheme,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
@@ -80,6 +83,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {onToggleTheme && (
+            <button
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Hellen Betrachtungsmodus aktivieren' : 'Dunkelmodus aktivieren'}
+              className="inline-flex items-center justify-center p-2 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 rounded-xl transition-colors min-h-[40px] min-w-[40px]"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-sky-500" />
+              )}
+            </button>
+          )}
+
           <button
             onClick={onOpenShare}
             title="Link teilen & WhatsApp Report"

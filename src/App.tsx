@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useFootballData } from './hooks/useFootballData';
+import { useTheme } from './hooks/useTheme';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
 import { StatsDashboard } from './components/StatsDashboard';
@@ -7,18 +8,19 @@ import { MatchHistory } from './components/MatchHistory';
 import { PlayersView } from './components/PlayersView';
 import { QuickMatchModal } from './components/QuickMatchModal';
 import { ShareModal } from './components/ShareModal';
+import { ColdStartLoading } from './components/ColdStartLoading';
 import { Match } from './types';
 import { 
   Trophy, 
   History, 
   Users, 
   Plus, 
-  Loader2, 
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const {
     data,
     loading,
@@ -81,19 +83,9 @@ export default function App() {
     return updated;
   };
 
-  // Loading Screen
+  // Loading Screen (Render Cold Start with animation & humor)
   if (loading && !data) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 animate-bounce">
-          ⚽
-        </div>
-        <div className="flex items-center gap-2 text-slate-300 text-sm font-medium">
-          <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-          <span>Lade VTV Freier Grund Statistiken...</span>
-        </div>
-      </div>
-    );
+    return <ColdStartLoading />;
   }
 
   // Fallback if data is missing
@@ -132,12 +124,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-24 md:pb-12">
-      {/* Top Header */}
+      {/* Top Header with Theme Switch */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenNewMatch={handleOpenNewMatch}
         onOpenShare={() => setIsShareModalOpen(true)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Main Content Canvas */}
@@ -205,12 +199,12 @@ export default function App() {
 
           <button
             onClick={handleOpenNewMatch}
-            className="flex flex-col items-center justify-center h-full text-emerald-400 font-semibold"
+            className="flex flex-col items-center justify-center h-full text-emerald-400 font-semibold group -mt-3"
           >
-            <div className="w-10 h-10 rounded-2xl bg-emerald-400 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/40 ring-4 ring-slate-950 group-active:scale-95 transition-all">
               <Plus className="w-6 h-6 stroke-[3]" />
             </div>
-            <span className="text-[10px] text-emerald-300 mt-1 font-bold">Spiel eintragen</span>
+            <span className="text-[10px] text-emerald-400 mt-0.5 font-extrabold tracking-tight">Spiel eintragen</span>
           </button>
 
           <button

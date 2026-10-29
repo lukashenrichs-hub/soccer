@@ -116,7 +116,7 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           type="text"
           value={newPlayerName}
           onChange={(e) => setNewPlayerName(e.target.value)}
-          placeholder="Neuen Spieler hinzufügen (PIN 57290 erforderlich)"
+          placeholder="Neuen Spieler hinzufügen (Admin-PIN erforderlich)"
           className="flex-1 px-4 py-2.5 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
         />
         <button
