@@ -36,15 +36,20 @@
 }
 
 /* =========================================================================
-   LIGHT MODE STYLING (Heller Betrachtungsmodus - Maximale Kontraste)
+   LIGHT MODE STYLING (Heller Betrachtungsmodus - Sanftes Grau & Hoher Kontrast)
+   Hintergrund: Angenehmes Hellgrau (#f1f5f9), Karten in Weiß (#ffffff)
    ========================================================================= */
 html.light body {
-  background-color: #f8fafc;
+  background-color: #f1f5f9; /* Angenehmes Hellgrau statt grellem Weiß */
   color: #0f172a;
 }
 
+html.light main {
+  background-color: #f1f5f9;
+}
+
 html.light ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #e2e8f0;
 }
 html.light ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
@@ -58,7 +63,7 @@ html.light ::-webkit-scrollbar-thumb:hover {
    ------------------------------------------------------------------------- */
 html.light .header-bar {
   background-color: #ffffff !important;
-  border-bottom-color: #e2e8f0 !important;
+  border-bottom-color: #cbd5e1 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
@@ -68,7 +73,7 @@ html.light .header-brand-title {
 }
 
 html.light .header-badge {
-  background-color: #ecfdf5 !important;
+  background-color: #d1fae5 !important;
   border-color: #6ee7b7 !important;
   color: #065f46 !important;
   font-weight: 700 !important;
@@ -90,7 +95,7 @@ html.light .header-nav-btn.active {
 }
 
 html.light .header-action-btn {
-  background-color: #f1f5f9 !important;
+  background-color: #f8fafc !important;
   border-color: #cbd5e1 !important;
   color: #0f172a !important;
 }
@@ -101,7 +106,6 @@ html.light .header-action-btn:hover {
 
 /* -------------------------------------------------------------------------
    2. HERO SECTION & BANNER (LIGHT MODE)
-   Fixes black scrim and illegible header on top
    ------------------------------------------------------------------------- */
 html.light .hero-dark-scrim {
   display: none !important;
@@ -114,7 +118,7 @@ html.light .hero-light-scrim {
 html.light .hero-container {
   background-color: #ffffff !important;
   border-color: #cbd5e1 !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
 html.light .hero-title {
@@ -133,7 +137,7 @@ html.light .hero-desc {
 }
 
 html.light .hero-badge {
-  background-color: #ecfdf5 !important;
+  background-color: #d1fae5 !important;
   border-color: #6ee7b7 !important;
   color: #065f46 !important;
   font-weight: 700 !important;
@@ -156,7 +160,7 @@ html.light .hero-secondary-btn {
 }
 
 html.light .hero-secondary-btn:hover {
-  background-color: #f1f5f9 !important;
+  background-color: #f8fafc !important;
 }
 
 html.light .hero-photo-card {
@@ -204,15 +208,239 @@ html.light .hero-kpi-sub {
 }
 
 /* -------------------------------------------------------------------------
-   3. GENERAL SURFACES & CONTAINERS (LIGHT MODE)
+   3. TABLE VIEW & RANKING (LIGHT MODE) - KLARE KONTRASTE & STRUKTUR
+   ------------------------------------------------------------------------- */
+html.light table {
+  background-color: #ffffff !important;
+}
+
+html.light table thead tr {
+  background-color: #e2e8f0 !important; /* Deutlicher hellgrauer Kopf */
+  border-bottom: 2px solid #cbd5e1 !important;
+}
+
+html.light table thead th {
+  color: #0f172a !important; /* Sehr dunkles Schiefer für perfekte Lesbarkeit */
+  font-weight: 800 !important;
+}
+
+html.light table thead th.text-emerald-400 {
+  color: #047857 !important;
+}
+
+html.light table thead th.text-amber-400,
+html.light table thead th.text-amber-300 {
+  color: #92400e !important;
+}
+
+html.light table thead th.bg-amber-950\/20 {
+  background-color: #fef3c7 !important;
+  color: #78350f !important;
+}
+
+html.light table tbody tr {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light table tbody tr:nth-child(even) {
+  background-color: #f8fafc !important; /* Dezentes Zebra-Muster */
+}
+
+html.light table tbody tr:hover {
+  background-color: #edf2f7 !important;
+}
+
+html.light table tbody td {
+  color: #1e293b !important;
+}
+
+/* Rank column in table */
+html.light table tbody td:first-child {
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+/* Player Name in Table */
+html.light table tbody td span.text-white,
+html.light table tbody td .font-semibold {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+html.light table tbody tr:hover span.group-hover\:text-emerald-400 {
+  color: #047857 !important;
+}
+
+html.light table tbody td .text-slate-200 {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+html.light table tbody td .text-slate-300 {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+html.light table tbody td .text-slate-400 {
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+/* Format Pills in Table (3v3, 4v4, 3v4) */
+html.light table tbody td span.bg-slate-800,
+html.light span.bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+html.light td.bg-amber-950\/10 {
+  background-color: #fffbeb !important;
+  border-left: 1px solid #fef3c7 !important;
+  border-right: 1px solid #fef3c7 !important;
+}
+
+/* Points Badge in Table */
+html.light .bg-emerald-500\/20 {
+  background-color: #d1fae5 !important;
+  border-color: #34d399 !important;
+  color: #065f46 !important;
+  font-weight: 800 !important;
+}
+
+/* Quoten-Balken Track */
+html.light table .w-full.h-2.rounded-full.bg-slate-800,
+html.light .w-full.h-2.rounded-full.bg-slate-800 {
+  background-color: #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* -------------------------------------------------------------------------
+   4. DYNAMIC PLAYER BADGES & TITLES (LIGHT MODE)
+   Mappt alle Titel aus getPlayerTitle auf freundliche, kontraststarke Badges
+   ------------------------------------------------------------------------- */
+/* Gold / Unterzahl-König / Flamme */
+html.light .bg-amber-950\/90,
+html.light .bg-amber-950\/80,
+html.light .bg-amber-950\/70,
+html.light .bg-amber-950\/60,
+html.light .bg-amber-950\/50,
+html.light .bg-amber-950\/40,
+html.light .bg-amber-950\/30,
+html.light .bg-amber-950\/20,
+html.light .bg-amber-950 {
+  background-color: #fef3c7 !important; /* amber-100 */
+  border-color: #f59e0b !important; /* amber-500 */
+  color: #78350f !important; /* amber-900 */
+}
+
+/* Tabellenführer / Grün */
+html.light .bg-emerald-950\/90,
+html.light .bg-emerald-950\/80,
+html.light .bg-emerald-950\/70,
+html.light .bg-emerald-950\/60,
+html.light .bg-emerald-950\/50,
+html.light .bg-emerald-950\/40,
+html.light .bg-emerald-950\/30,
+html.light .bg-emerald-950 {
+  background-color: #d1fae5 !important; /* emerald-100 */
+  border-color: #10b981 !important; /* emerald-500 */
+  color: #064e3b !important; /* emerald-900 */
+}
+
+/* Sieg-Maschine / Indigo */
+html.light .bg-indigo-950\/90,
+html.light .bg-indigo-950\/80,
+html.light .bg-indigo-950 {
+  background-color: #e0e7ff !important; /* indigo-100 */
+  border-color: #6366f1 !important; /* indigo-500 */
+  color: #312e81 !important; /* indigo-900 */
+}
+html.light .text-indigo-300,
+html.light .text-indigo-400 {
+  color: #3730a3 !important;
+}
+
+/* Quoten-König / Teal */
+html.light .bg-teal-950\/80,
+html.light .bg-teal-950 {
+  background-color: #ccfbf1 !important; /* teal-100 */
+  border-color: #14b8a6 !important; /* teal-500 */
+  color: #134e4a !important; /* teal-900 */
+}
+html.light .text-teal-300,
+html.light .text-teal-400 {
+  color: #115e59 !important;
+}
+
+/* Podest-Kämpfer / Cyan */
+html.light .bg-cyan-950\/80,
+html.light .bg-cyan-950 {
+  background-color: #cffafe !important; /* cyan-100 */
+  border-color: #06b6d4 !important; /* cyan-500 */
+  color: #164e63 !important; /* cyan-900 */
+}
+html.light .text-cyan-300,
+html.light .text-cyan-400 {
+  color: #155e75 !important;
+}
+
+/* Hallen-Routinier / Violett */
+html.light .bg-violet-950\/80,
+html.light .bg-violet-950 {
+  background-color: #ede9fe !important; /* violet-100 */
+  border-color: #8b5cf6 !important; /* violet-500 */
+  color: #4c1d95 !important; /* violet-900 */
+}
+html.light .text-violet-300,
+html.light .text-violet-400 {
+  color: #5b21b6 !important;
+}
+
+/* Pechvogel / Niederlagen / Rose */
+html.light .bg-rose-950\/90,
+html.light .bg-rose-950\/85,
+html.light .bg-rose-950\/80,
+html.light .bg-rose-950\/70,
+html.light .bg-rose-950\/60,
+html.light .bg-rose-950\/50,
+html.light .bg-rose-950\/40,
+html.light .bg-rose-950\/30,
+html.light .bg-rose-950 {
+  background-color: #ffe4e6 !important; /* rose-100 */
+  border-color: #f43f5e !important; /* rose-500 */
+  color: #881337 !important; /* rose-900 */
+}
+
+/* Alternativsport / Lila */
+html.light .bg-purple-950\/90,
+html.light .bg-purple-950\/80,
+html.light .bg-purple-950\/70,
+html.light .bg-purple-950\/60,
+html.light .bg-purple-950\/50,
+html.light .bg-purple-950\/40,
+html.light .bg-purple-950\/30,
+html.light .bg-purple-950\/20,
+html.light .bg-purple-950 {
+  background-color: #f3e8ff !important; /* purple-100 */
+  border-color: #a855f7 !important; /* purple-500 */
+  color: #581c87 !important; /* purple-900 */
+}
+
+/* -------------------------------------------------------------------------
+   5. GENERAL SURFACES & CONTAINERS (LIGHT MODE)
    ------------------------------------------------------------------------- */
 html.light .bg-slate-950,
 html.light .bg-slate-950\/95,
 html.light .bg-slate-950\/90,
+html.light .bg-slate-950\/85,
 html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/70,
 html.light .bg-slate-950\/60 {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 
 html.light .bg-slate-900,
@@ -234,6 +462,23 @@ html.light .bg-slate-800\/40 {
   background-color: #f1f5f9 !important;
 }
 
+/* Spotlight Card Gradients in Light Mode */
+html.light .bg-gradient-to-br.from-slate-900 {
+  background: #ffffff !important;
+  background-image: none !important;
+}
+
+/* 3 vs 4 Special Banner in Light Mode */
+html.light .from-amber-950\/50,
+html.light .from-amber-950\/40 {
+  background-color: #fffbeb !important;
+  background-image: none !important;
+}
+html.light .border-amber-500\/30,
+html.light .border-amber-500\/40 {
+  border-color: #fcd34d !important;
+}
+
 /* High Contrast Borders */
 html.light .border-slate-800,
 html.light .border-slate-800\/90,
@@ -250,7 +495,7 @@ html.light .border-slate-700\/40 {
   border-color: #cbd5e1 !important;
 }
 
-/* Base Typography */
+/* Base Typography: High contrast dark text */
 html.light .text-slate-100 {
   color: #0f172a !important;
 }
@@ -267,7 +512,23 @@ html.light .text-slate-500 {
   color: #64748b !important;
 }
 
-/* Headings in general (unless inside solid colored buttons) */
+/* Global text-white safety in light mode */
+/* Elements styled with text-white should become dark charcoal unless inside a solid colored button */
+html.light .text-white:not(button.bg-emerald-600 *):not(button.bg-rose-600 *):not(button.bg-purple-600 *):not(button.bg-purple-500 *):not(button.bg-rose-500 *):not(button.bg-amber-500 *):not(.bg-purple-600 *):not(.bg-rose-600 *) {
+  color: #0f172a !important;
+}
+
+/* CRITICAL: Overriding hover:text-white so hovering never erases text */
+html.light .hover\:text-white:hover,
+html.light .hover\:text-slate-100:hover,
+html.light .hover\:text-slate-200:hover,
+html.light .hover\:text-slate-300:hover,
+html.light .hover\:text-slate-400:hover,
+html.light .group:hover .group-hover\:text-white {
+  color: #0f172a !important;
+}
+
+/* Headings in general */
 html.light h1:not(.btn *),
 html.light h2:not(.btn *),
 html.light h3:not(.btn *),
@@ -279,13 +540,13 @@ html.light h4:not(.btn *) {
 html.light .text-emerald-400,
 html.light .text-emerald-300,
 html.light .text-emerald-200 {
-  color: #047857 !important; /* emerald-700: crisp & readable on white */
+  color: #047857 !important; /* emerald-700: tiefes Grün */
 }
 
 html.light .text-amber-400,
 html.light .text-amber-300,
 html.light .text-amber-200 {
-  color: #b45309 !important; /* amber-700: deep contrast */
+  color: #b45309 !important; /* amber-700: sattes Bernstein */
 }
 
 html.light .text-yellow-400,
@@ -313,83 +574,7 @@ html.light .text-purple-200 {
 }
 
 /* -------------------------------------------------------------------------
-   4. TINTED CARDS & SPOTLIGHT BADGES (LIGHT MODE)
-   ------------------------------------------------------------------------- */
-html.light .bg-emerald-950,
-html.light .bg-emerald-950\/80,
-html.light .bg-emerald-950\/70,
-html.light .bg-emerald-950\/60,
-html.light .bg-emerald-950\/40,
-html.light .bg-emerald-950\/30 {
-  background-color: #ecfdf5 !important; /* emerald-50 */
-  border-color: #a7f3d0 !important; /* emerald-200 */
-}
-
-html.light .bg-rose-950,
-html.light .bg-rose-950\/85,
-html.light .bg-rose-950\/70,
-html.light .bg-rose-950\/40,
-html.light .bg-rose-950\/30 {
-  background-color: #fff1f2 !important; /* rose-50 */
-  border-color: #fecdd3 !important; /* rose-200 */
-}
-
-html.light .bg-sky-950,
-html.light .bg-sky-950\/80,
-html.light .bg-sky-950\/60,
-html.light .bg-sky-950\/40,
-html.light .bg-sky-950\/30 {
-  background-color: #f0f9ff !important; /* sky-50 */
-  border-color: #bae6fd !important; /* sky-200 */
-}
-
-html.light .bg-amber-950,
-html.light .bg-amber-950\/90,
-html.light .bg-amber-950\/80,
-html.light .bg-amber-950\/70,
-html.light .bg-amber-950\/60,
-html.light .bg-amber-950\/40,
-html.light .bg-amber-950\/30 {
-  background-color: #fffbeb !important; /* amber-50 */
-  border-color: #fde68a !important; /* amber-200 */
-}
-
-html.light .bg-purple-950,
-html.light .bg-purple-950\/80,
-html.light .bg-purple-950\/70,
-html.light .bg-purple-950\/60,
-html.light .bg-purple-950\/50,
-html.light .bg-purple-950\/40,
-html.light .bg-purple-950\/30,
-html.light .bg-purple-950\/20 {
-  background-color: #faf5ff !important; /* purple-50 */
-  border-color: #e9d5ff !important; /* purple-200 */
-}
-
-/* Badges inside tinted cards */
-html.light .bg-emerald-900\/60,
-html.light .bg-emerald-900\/50 {
-  background-color: #d1fae5 !important;
-  border-color: #6ee7b7 !important;
-  color: #065f46 !important;
-}
-
-html.light .bg-rose-900\/60,
-html.light .bg-rose-900\/50 {
-  background-color: #ffe4e6 !important;
-  border-color: #fda4af !important;
-  color: #9f1239 !important;
-}
-
-html.light .bg-purple-900\/60,
-html.light .bg-purple-900\/50 {
-  background-color: #f3e8ff !important;
-  border-color: #d8b4fe !important;
-  color: #581c87 !important;
-}
-
-/* -------------------------------------------------------------------------
-   5. ACTION BUTTONS & FORMS (LIGHT MODE)
+   6. ACTION BUTTONS & FORMS (LIGHT MODE)
    ------------------------------------------------------------------------- */
 html.light button.bg-rose-600,
 html.light button.bg-rose-500,
@@ -430,13 +615,89 @@ html.light .hover\:bg-slate-700:hover {
 }
 
 /* Modals & Backdrop */
-html.light .bg-slate-950\/80 {
+html.light .bg-slate-950\/80,
+html.light .bg-slate-950\/85 {
   background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* -------------------------------------------------------------------------
+   7. QUICK MATCH MODAL (TILES & SELECTORS)
+   ------------------------------------------------------------------------- */
+/* Winners in QuickMatchModal */
+html.light .bg-emerald-950\/70 .text-white {
+  color: #064e3b !important;
+}
+
+/* Losers in QuickMatchModal */
+html.light .bg-rose-950\/85 .text-white {
+  color: #881337 !important;
+}
+
+/* Paused players in QuickMatchModal: distinct muted grey */
+html.light .bg-slate-800\/40.border-slate-700\/40 {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+html.light .bg-slate-800\/40.border-slate-700\/40 .text-white {
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+/* -------------------------------------------------------------------------
+   8. MOBILE CARD LIST VIEW & DETAIL MODALS
+   ------------------------------------------------------------------------- */
+html.light .md\:hidden > div.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+html.light .md\:hidden .font-bold.text-white {
+  color: #0f172a !important;
+}
+
+html.light .md\:hidden .bg-slate-800\/60 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+html.light .md\:hidden .font-mono.font-bold.text-white {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+/* Player Detail Modal Format Cards */
+html.light .bg-emerald-950\/30 {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+html.light .bg-sky-950\/30 {
+  background-color: #f0f9ff !important;
+  border-color: #bae6fd !important;
+}
+html.light .bg-amber-950\/40 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+html.light .bg-purple-950\/40,
+html.light .bg-purple-950\/30 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+/* Share & Admin Modal Code & WhatsApp Text Boxes */
+html.light .bg-slate-950\/80.rounded-xl.border,
+html.light .select-all.bg-slate-950\/80 {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
 }
 
 /* Mobile Fixed Bottom Navigation in Light Mode */
 html.light .md\:hidden.fixed.bottom-0 {
   background-color: #ffffff !important;
-  border-top-color: #e2e8f0 !important;
+  border-top-color: #cbd5e1 !important;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 }
+
+
