@@ -75,6 +75,7 @@ interface AppData {
   activeAttendeeIds: string[];
   lastUpdated: string;
   historicalTotalMatches?: number;
+  deletedMatchIds?: string[];
 }
 
 function getInitialData(): AppData {
@@ -90,6 +91,7 @@ function getInitialData(): AppData {
     matches: [],
     activeAttendeeIds: [],
     historicalTotalMatches: 73,
+    deletedMatchIds: [],
     lastUpdated: now,
   };
 }
@@ -119,6 +121,21 @@ function loadData(): AppData {
     if (!parsed.historicalTotalMatches) {
       parsed.historicalTotalMatches = 73;
       changed = true;
+    }
+
+    if (!parsed.deletedMatchIds) {
+      parsed.deletedMatchIds = [];
+      changed = true;
+    }
+
+    // Filter out any matches that were marked deleted
+    if (parsed.deletedMatchIds.length > 0 && Array.isArray(parsed.matches)) {
+      const delSet = new Set(parsed.deletedMatchIds);
+      const prevLen = parsed.matches.length;
+      parsed.matches = parsed.matches.filter((m) => !delSet.has(m.id));
+      if (parsed.matches.length !== prevLen) {
+        changed = true;
+      }
     }
 
     if (changed) {
@@ -157,7 +174,7 @@ app.get('/api/ping', (_req, res) => {
   });
 });
 
-// Non-destructive auto-sync: merges client matches with server matches by ID
+// Auto-sync: merges client matches with server matches, strictly ignoring deleted tombstones
 app.post('/api/sync', (req, res) => {
   const { matches } = req.body;
   if (!Array.isArray(matches)) {
@@ -166,9 +183,10 @@ app.post('/api/sync', (req, res) => {
 
   let mergedCount = 0;
   const existingIds = new Set(appData.matches.map((m) => m.id));
+  const deletedSet = new Set(appData.deletedMatchIds || []);
 
   for (const match of matches) {
-    if (match && match.id && !existingIds.has(match.id)) {
+    if (match && match.id && !existingIds.has(match.id) && !deletedSet.has(match.id)) {
       appData.matches.push(match);
       existingIds.add(match.id);
       mergedCount++;
@@ -179,7 +197,7 @@ app.post('/api/sync', (req, res) => {
     // Keep matches sorted newest first
     appData.matches.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     saveData(appData);
-    console.log(`[Auto-Sync] Merged ${mergedCount} matches from client. Total now: ${appData.matches.length}`);
+    console.log(`[Sync] Merged ${mergedCount} matches from client. Total now: ${appData.matches.length}`);
   }
 
   res.json({ success: true, mergedCount, totalMatches: appData.matches.length, state: appData });
@@ -253,22 +271,37 @@ const ADMIN_PIN = '57290';
 const requireAdminPin = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const pin = req.headers['x-admin-pin'] || req.body?.pin || req.query?.pin;
   if (pin !== ADMIN_PIN) {
-    return res.status(403).json({ error: 'PIN ungültig oder erforderlich (Admin-PIN: 57290).' });
+    return res.status(403).json({ error: 'PIN ungültig oder erforderlich.' });
   }
   next();
 };
 
 app.delete('/api/matches/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
-  const initialLength = appData.matches.length;
   appData.matches = appData.matches.filter((m) => m.id !== id);
 
-  if (appData.matches.length === initialLength) {
-    return res.status(404).json({ error: 'Spiel nicht gefunden.' });
+  if (!appData.deletedMatchIds) {
+    appData.deletedMatchIds = [];
+  }
+  if (!appData.deletedMatchIds.includes(id)) {
+    appData.deletedMatchIds.push(id);
   }
 
   saveData(appData);
   res.json({ success: true, state: appData });
+});
+
+// Clear all matches / reset history endpoint (PIN protected)
+app.post('/api/matches/clear-all', requireAdminPin, (_req, res) => {
+  if (!appData.deletedMatchIds) appData.deletedMatchIds = [];
+  appData.matches.forEach((m) => {
+    if (!appData.deletedMatchIds!.includes(m.id)) {
+      appData.deletedMatchIds!.push(m.id);
+    }
+  });
+  appData.matches = [];
+  saveData(appData);
+  res.json({ success: true, message: 'Alle erfassten Spiele wurden erfolgreich gelöscht.', state: appData });
 });
 
 app.put('/api/matches/:id', requireAdminPin, (req, res) => {

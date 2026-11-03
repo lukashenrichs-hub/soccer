@@ -31,6 +31,7 @@ export default function App() {
     addMatch,
     editMatch,
     deleteMatch,
+    clearAllMatches,
     updateAttendees,
     addPlayer,
     deletePlayer,
@@ -277,6 +278,7 @@ export default function App() {
         onResetSeed={resetSeed}
         onImportData={importData}
         onEmergencyScanAndRestore={emergencyScanAndRestore}
+        onClearAllMatches={clearAllMatches}
       />
 
       <MatchCelebrationModal

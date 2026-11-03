@@ -33,6 +33,7 @@ export interface AppData {
   activeAttendeeIds: string[];
   lastUpdated: string;
   historicalTotalMatches?: number;
+  deletedMatchIds?: string[];
 }
 
 export interface FormatStats {

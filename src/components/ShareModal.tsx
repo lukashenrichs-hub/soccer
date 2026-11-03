@@ -12,6 +12,7 @@ interface ShareModalProps {
   onResetSeed: () => Promise<any>;
   onImportData: (data: Partial<AppData>) => Promise<any>;
   onEmergencyScanAndRestore?: () => Promise<number>;
+  onClearAllMatches?: () => Promise<any>;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -21,6 +22,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   onResetSeed,
   onImportData,
   onEmergencyScanAndRestore,
+  onClearAllMatches,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedWhatsapp, setCopiedWhatsapp] = useState(false);
@@ -327,10 +329,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       type="button"
                       onClick={handleEmergencyRestore}
                       disabled={restoringEmergency}
-                      className="px-3 py-2 text-xs font-semibold text-amber-300 bg-amber-950/80 hover:bg-amber-900 rounded-xl border border-amber-600/70 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 rounded-xl border border-emerald-600/70 flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${restoringEmergency ? 'animate-spin' : ''}`} />
-                      <span>{restoringEmergency ? 'Suche im Speicher...' : '🔍 Spiele aus Handy-Speicher retten'}</span>
+                      <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${restoringEmergency ? 'animate-spin' : ''}`} />
+                      <span>{restoringEmergency ? 'Synchronisiere...' : '🔄 Cache leeren & Server-Stand erzwingen'}</span>
                     </button>
                   )}
                 </div>
@@ -338,6 +340,24 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 {restoreMessage && (
                   <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/50 text-emerald-300 text-xs font-medium animate-in fade-in">
                     {restoreMessage}
+                  </div>
+                )}
+
+                {/* Clear all matches only */}
+                {onClearAllMatches && (
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm('Möchtest du wirklich alle eingetragenen Spiele leeren? Der Spielerkader und die historischen Baselines bleiben erhalten.')) {
+                          await onClearAllMatches();
+                          setRestoreMessage('✅ Alle Spiele-Einträge wurden gelöscht.');
+                        }
+                      }}
+                      className="text-xs text-slate-400 hover:text-rose-400 flex items-center gap-1.5 transition-colors"
+                    >
+                      <span>🗑️ Nur alle Spiele-Einträge leeren (Kader bleibt)</span>
+                    </button>
                   </div>
                 )}
 

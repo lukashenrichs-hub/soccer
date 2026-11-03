@@ -133,85 +133,9 @@
       }
     }
   ],
-  "matches": [
-    {
-      "id": "m_1793262328716_jlc4h",
-      "timestamp": "2026-10-29T08:25:28.000Z",
-      "sessionDate": "2026-10-29",
-      "scoreTo": 10,
-      "participantIds": [
-        "p_1_max",
-        "p_2_jonas",
-        "p_4_lukas_henrichs",
-        "p_5_basti",
-        "p_8_nico",
-        "p_9_sandro",
-        "p_11_tom"
-      ],
-      "loserIds": [
-        "p_8_nico",
-        "p_9_sandro",
-        "p_5_basti"
-      ],
-      "winnerIds": [
-        "p_1_max",
-        "p_2_jonas",
-        "p_4_lukas_henrichs",
-        "p_11_tom"
-      ]
-    },
-    {
-      "id": "m_1793262314590_arg4c",
-      "timestamp": "2026-10-29T08:25:14.000Z",
-      "sessionDate": "2026-10-29",
-      "scoreTo": 10,
-      "participantIds": [
-        "p_1_max",
-        "p_2_jonas",
-        "p_4_lukas_henrichs",
-        "p_5_basti",
-        "p_8_nico",
-        "p_9_sandro",
-        "p_11_tom"
-      ],
-      "loserIds": [
-        "p_4_lukas_henrichs",
-        "p_2_jonas",
-        "p_1_max",
-        "p_11_tom"
-      ],
-      "winnerIds": [
-        "p_5_basti",
-        "p_8_nico",
-        "p_9_sandro"
-      ]
-    },
-    {
-      "id": "m_1793262269594_memap",
-      "timestamp": "2026-10-27T08:24:29.000Z",
-      "sessionDate": "2026-10-27",
-      "scoreTo": 10,
-      "participantIds": [
-        "p_1_max",
-        "p_2_jonas",
-        "p_4_lukas_henrichs",
-        "p_5_basti",
-        "p_8_nico",
-        "p_9_sandro"
-      ],
-      "loserIds": [
-        "p_8_nico",
-        "p_9_sandro",
-        "p_4_lukas_henrichs"
-      ],
-      "winnerIds": [
-        "p_1_max",
-        "p_2_jonas",
-        "p_5_basti"
-      ]
-    }
-  ],
+  "matches": [],
   "activeAttendeeIds": [],
   "historicalTotalMatches": 73,
-  "lastUpdated": "2026-11-03T14:17:12.494Z"
+  "lastUpdated": "2026-11-03T20:33:48.128Z",
+  "deletedMatchIds": []
 }

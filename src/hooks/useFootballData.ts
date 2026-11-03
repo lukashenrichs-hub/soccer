@@ -1,8 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { ActivityType, AppData, Match, Player } from '../types';
 
-const STORAGE_KEY = 'vtv_freier_grund_data_cache';
-const PERMANENT_MATCHES_KEY = 'vtv_permanent_matches_history';
+const STORAGE_KEY = 'vtv_state_cache_v3';
+
+// Remove old legacy keys that caused zombie matches to re-appear across devices
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    localStorage.removeItem('vtv_permanent_matches_history');
+    localStorage.removeItem('vtv_freier_grund_data_cache');
+  }
+} catch {
+  // ignore
+}
 
 const HISTORICAL_BASELINES: Record<string, { games: number; losses: number; wins: number }> = {
   'Sandro': { games: 73, losses: 39, wins: 34 },
@@ -20,62 +29,11 @@ const HISTORICAL_BASELINES: Record<string, { games: number; losses: number; wins
   'Robin': { games: 4, losses: 2, wins: 2 },
 };
 
-export function getKnownMatches(): Match[] {
-  const matchesMap = new Map<string, Match>();
-  try {
-    // 1. From permanent matches archive
-    const permRaw = localStorage.getItem(PERMANENT_MATCHES_KEY);
-    if (permRaw) {
-      const parsed: Match[] = JSON.parse(permRaw);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((m) => {
-          if (m && m.id) matchesMap.set(m.id, m);
-        });
-      }
-    }
-
-    // 2. From standard cache
-    const cacheRaw = localStorage.getItem(STORAGE_KEY);
-    if (cacheRaw) {
-      const parsed: AppData = JSON.parse(cacheRaw);
-      if (parsed && Array.isArray(parsed.matches)) {
-        parsed.matches.forEach((m) => {
-          if (m && m.id) matchesMap.set(m.id, m);
-        });
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  return Array.from(matchesMap.values()).sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-}
-
-export function saveKnownMatches(matches: Match[]) {
-  try {
-    const existing = getKnownMatches();
-    const map = new Map<string, Match>();
-    existing.forEach((m) => map.set(m.id, m));
-    matches.forEach((m) => map.set(m.id, m));
-
-    const combined = Array.from(map.values()).sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-
-    localStorage.setItem(PERMANENT_MATCHES_KEY, JSON.stringify(combined));
-    return combined;
-  } catch {
-    return matches;
-  }
-}
-
 function getLocalBackup(): AppData | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
+    const parsed: AppData = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.players)) {
       parsed.players.forEach((p: Player) => {
         if (!p.historicalStats && HISTORICAL_BASELINES[p.name]) {
@@ -85,12 +43,11 @@ function getLocalBackup(): AppData | null {
       if (!parsed.historicalTotalMatches) {
         parsed.historicalTotalMatches = 73;
       }
-      // Ensure all known permanent matches are attached
-      const allKnown = getKnownMatches();
-      if (allKnown.length > (parsed.matches?.length || 0)) {
-        parsed.matches = allKnown;
+      if (Array.isArray(parsed.deletedMatchIds) && parsed.deletedMatchIds.length > 0) {
+        const delSet = new Set(parsed.deletedMatchIds);
+        parsed.matches = (parsed.matches || []).filter((m) => !delSet.has(m.id));
       }
-      return parsed as AppData;
+      return parsed;
     }
   } catch {
     // ignore
@@ -101,9 +58,6 @@ function getLocalBackup(): AppData | null {
 function saveLocalBackup(state: AppData) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (Array.isArray(state.matches) && state.matches.length > 0) {
-      saveKnownMatches(state.matches);
-    }
   } catch {
     // ignore
   }
@@ -120,68 +74,26 @@ export function useFootballData() {
   const fetchState = useCallback(async (silent = false) => {
     try {
       if (!silent) setError(null);
-      const res = await fetch('/api/state');
+      const res = await fetch('/api/state', { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const json: AppData = await res.json();
 
       if (isMountedRef.current) {
-        const localMatches = getKnownMatches();
-        const serverMatches = json.matches || [];
-
-        // Identify matches present in local storage that server doesn't have
-        const serverIds = new Set(serverMatches.map((m) => m.id));
-        const missingOnServer = localMatches.filter((m) => !serverIds.has(m.id));
-
-        if (missingOnServer.length > 0) {
-          console.warn(`[Auto-Recovery] Found ${missingOnServer.length} local matches missing on server. Auto-syncing...`);
-          // Push missing matches to server non-destructively
-          fetch('/api/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ matches: localMatches }),
-          })
-            .then(async (r) => {
-              if (r.ok) {
-                const syncRes = await r.json();
-                if (isMountedRef.current && syncRes.state) {
-                  setData(syncRes.state);
-                  lastUpdatedRef.current = syncRes.state.lastUpdated;
-                  saveLocalBackup(syncRes.state);
-                }
-              }
-            })
-            .catch(console.error);
-
-          // In the meantime, use merged state on client
-          const mergedMap = new Map<string, Match>();
-          serverMatches.forEach((m) => mergedMap.set(m.id, m));
-          localMatches.forEach((m) => mergedMap.set(m.id, m));
-          const mergedList = Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-
-          const mergedState: AppData = {
-            ...json,
-            matches: mergedList,
-          };
-          setData(mergedState);
-          saveLocalBackup(mergedState);
-        } else {
-          // Server has all matches
-          if (serverMatches.length > 0) {
-            saveKnownMatches(serverMatches);
-          }
-          saveLocalBackup(json);
-          if (json.lastUpdated !== lastUpdatedRef.current || !data) {
-            lastUpdatedRef.current = json.lastUpdated;
-            setData(json);
-          }
+        // Enforce tombstones
+        if (Array.isArray(json.deletedMatchIds) && json.deletedMatchIds.length > 0) {
+          const delSet = new Set(json.deletedMatchIds);
+          json.matches = (json.matches || []).filter((m) => !delSet.has(m.id));
         }
+
+        // Server is the single source of truth - update state and local cache
+        lastUpdatedRef.current = json.lastUpdated || '';
+        setData(json);
+        saveLocalBackup(json);
         setLoading(false);
       }
     } catch (err: any) {
       if (isMountedRef.current) {
-        console.error('Failed to fetch state:', err);
+        console.error('Failed to fetch state from server:', err);
         const local = getLocalBackup();
         if (local && !data) {
           setData(local);
@@ -198,10 +110,10 @@ export function useFootballData() {
     isMountedRef.current = true;
     fetchState(false);
 
-    // Live background polling for multi-device sync
+    // Live background polling for instant multi-device synchronization
     const interval = setInterval(() => {
       fetchState(true);
-    }, 4000);
+    }, 3000);
 
     return () => {
       isMountedRef.current = false;
@@ -234,6 +146,7 @@ export function useFootballData() {
       const updatedState = resJson.state as AppData;
       setData(updatedState);
       saveLocalBackup(updatedState);
+      lastUpdatedRef.current = updatedState.lastUpdated;
       return resJson.match as Match;
     } finally {
       setIsSaving(false);
@@ -241,6 +154,21 @@ export function useFootballData() {
   };
 
   const deleteMatch = async (id: string, pin: string = '57290') => {
+    // Optimistically remove from state & local storage immediately
+    setData((prev) => {
+      if (!prev) return null;
+      const updatedMatches = prev.matches.filter((m) => m.id !== id);
+      const updatedDeletedIds = Array.from(new Set([...(prev.deletedMatchIds || []), id]));
+      const nextState: AppData = {
+        ...prev,
+        matches: updatedMatches,
+        deletedMatchIds: updatedDeletedIds,
+        lastUpdated: new Date().toISOString(),
+      };
+      saveLocalBackup(nextState);
+      return nextState;
+    });
+
     const res = await fetch(`/api/matches/${id}`, {
       method: 'DELETE',
       headers: {
@@ -250,23 +178,52 @@ export function useFootballData() {
 
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || 'Fehler beim Löschen des Spiels');
+      // If 404, it was already deleted on server, which is fine
+      if (res.status !== 404) {
+        throw new Error(errJson.error || 'Fehler beim Löschen des Spiels');
+      }
+    }
+
+    const resJson = await res.json().catch(() => ({}));
+    if (resJson && resJson.state) {
+      const serverState = resJson.state as AppData;
+      setData(serverState);
+      saveLocalBackup(serverState);
+      lastUpdatedRef.current = serverState.lastUpdated;
+    }
+    return true;
+  };
+
+  const clearAllMatches = async (pin: string = '57290') => {
+    const res = await fetch('/api/matches/clear-all', {
+      method: 'POST',
+      headers: {
+        'x-admin-pin': pin,
+      },
+    });
+
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Fehler beim Löschen der Spiele');
     }
 
     const resJson = await res.json();
     const updatedState = resJson.state as AppData;
+    setData(updatedState);
+    saveLocalBackup(updatedState);
+    lastUpdatedRef.current = updatedState.lastUpdated;
+    return true;
+  };
 
-    // Also remove from permanent matches cache so it doesn't auto-restore
+  const forceSync = async () => {
     try {
-      const remaining = getKnownMatches().filter((m) => m.id !== id);
-      localStorage.setItem(PERMANENT_MATCHES_KEY, JSON.stringify(remaining));
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('vtv_permanent_matches_history');
+      localStorage.removeItem('vtv_freier_grund_data_cache');
     } catch {
       // ignore
     }
-
-    setData(updatedState);
-    saveLocalBackup(updatedState);
-    return true;
+    await fetchState(false);
   };
 
   const editMatch = async (
@@ -299,6 +256,7 @@ export function useFootballData() {
     const updatedState = resJson.state as AppData;
     setData(updatedState);
     saveLocalBackup(updatedState);
+    lastUpdatedRef.current = updatedState.lastUpdated;
     return resJson.match as Match;
   };
 
@@ -332,6 +290,7 @@ export function useFootballData() {
     const resJson = await res.json();
     setData(resJson.state);
     saveLocalBackup(resJson.state);
+    lastUpdatedRef.current = resJson.state.lastUpdated;
   };
 
   const deletePlayer = async (id: string, pin: string = '57290') => {
@@ -350,6 +309,7 @@ export function useFootballData() {
     const resJson = await res.json();
     setData(resJson.state);
     saveLocalBackup(resJson.state);
+    lastUpdatedRef.current = resJson.state.lastUpdated;
   };
 
   const resetSeed = async (pin: string = '57290') => {
@@ -366,9 +326,16 @@ export function useFootballData() {
     }
 
     const resJson = await res.json();
-    localStorage.removeItem(PERMANENT_MATCHES_KEY);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('vtv_permanent_matches_history');
+      localStorage.removeItem('vtv_freier_grund_data_cache');
+    } catch {
+      // ignore
+    }
     setData(resJson.state);
     saveLocalBackup(resJson.state);
+    lastUpdatedRef.current = resJson.state.lastUpdated;
   };
 
   const importData = async (importedData: Partial<AppData>, pin: string = '57290') => {
@@ -389,59 +356,13 @@ export function useFootballData() {
     const resJson = await res.json();
     setData(resJson.state);
     saveLocalBackup(resJson.state);
+    lastUpdatedRef.current = resJson.state.lastUpdated;
   };
 
-  // Emergency scanner: scans entire localStorage across all keys for matches
+  // Safe manual sync: purges any corrupted local caches and forces clean reload from server
   const emergencyScanAndRestore = async () => {
-    try {
-      const foundMatchesMap = new Map<string, Match>();
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key) continue;
-        try {
-          const val = localStorage.getItem(key);
-          if (!val) continue;
-          if (val.includes('"scoreTo"') || val.includes('"participantIds"')) {
-            const parsed = JSON.parse(val);
-            const matchesArr: Match[] = Array.isArray(parsed)
-              ? parsed
-              : Array.isArray(parsed.matches)
-              ? parsed.matches
-              : [];
-            matchesArr.forEach((m) => {
-              if (m && m.id && Array.isArray(m.loserIds)) {
-                foundMatchesMap.set(m.id, m);
-              }
-            });
-          }
-        } catch {
-          // ignore parsing error
-        }
-      }
-
-      const allRecovered = Array.from(foundMatchesMap.values());
-      if (allRecovered.length > 0) {
-        saveKnownMatches(allRecovered);
-        const res = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matches: allRecovered }),
-        });
-        if (res.ok) {
-          const syncRes = await res.json();
-          if (syncRes.state) {
-            setData(syncRes.state);
-            saveLocalBackup(syncRes.state);
-            return allRecovered.length;
-          }
-        }
-      }
-      return allRecovered.length;
-    } catch (e) {
-      console.error('Emergency scan failed:', e);
-      return 0;
-    }
+    await forceSync();
+    return data?.matches?.length || 0;
   };
 
   return {
@@ -452,6 +373,8 @@ export function useFootballData() {
     refresh: fetchState,
     addMatch,
     deleteMatch,
+    clearAllMatches,
+    forceSync,
     editMatch,
     updateAttendees,
     addPlayer,
