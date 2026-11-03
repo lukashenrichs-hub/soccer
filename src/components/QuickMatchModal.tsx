@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, ShieldAlert, X, RotateCcw, UserMinus, UserCheck, Flame, Calendar, Award } from 'lucide-react';
-import { Match, Player } from '../types';
+import { Check, ShieldAlert, X, RotateCcw, Calendar, Users, AlertTriangle, Info } from 'lucide-react';
+import { ActivityType, Match, Player } from '../types';
 
 interface QuickMatchModalProps {
   isOpen: boolean;
@@ -10,21 +10,32 @@ interface QuickMatchModalProps {
   matchToEdit?: Match | null;
   onSaveMatch: (matchData: {
     participantIds: string[];
-    loserIds: string[];
+    loserIds?: string[];
     sessionDate?: string;
     note?: string;
+    activityType?: ActivityType;
+    sportName?: string;
   }) => Promise<any>;
   onEditMatch?: (
     id: string,
     matchData: {
-      participantIds: string[];
-      loserIds: string[];
+      participantIds?: string[];
+      loserIds?: string[];
       sessionDate?: string;
       note?: string;
+      activityType?: ActivityType;
+      sportName?: string;
     }
   ) => Promise<any>;
   onUpdateAttendees?: (attendeeIds: string[]) => Promise<any>;
 }
+
+const ALTERNATIVE_SPORTS: { id: ActivityType; name: string; icon: string }[] = [
+  { id: 'badminton', name: 'Badminton', icon: '🏸' },
+  { id: 'touchtennis', name: 'Touchtennis', icon: '🎾' },
+  { id: 'other', name: 'Tischtennis', icon: '🏓' },
+  { id: 'other', name: 'Freies Training', icon: '🏃' },
+];
 
 export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   isOpen,
@@ -36,9 +47,14 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   onEditMatch,
   onUpdateAttendees,
 }) => {
+  // Mode: Football (Ranking Match >= 6) vs. Alternative Sport (< 6, pure attendance)
+  const [entryMode, setEntryMode] = useState<'football' | 'alternative'>('football');
+  const [selectedSport, setSelectedSport] = useState<ActivityType>('badminton');
+  const [customSportName, setCustomSportName] = useState('Badminton');
+
   // Active participants on the pitch
   const [participants, setParticipants] = useState<string[]>([]);
-  // Losers in this game
+  // Losers in this football game
   const [losers, setLosers] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [sessionDate, setSessionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -46,12 +62,16 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevIsOpenRef = useRef(false);
 
-  // Initialize participants ONLY when modal transitions from closed to open
+  // Initialize modal state when opened
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       if (matchToEdit) {
-        setParticipants(matchToEdit.participantIds);
-        setLosers(matchToEdit.loserIds);
+        const isAlt = matchToEdit.activityType && matchToEdit.activityType !== 'football';
+        setEntryMode(isAlt ? 'alternative' : 'football');
+        setSelectedSport(matchToEdit.activityType || 'football');
+        setCustomSportName(matchToEdit.sportName || (isAlt ? 'Badminton' : 'Fußball'));
+        setParticipants(matchToEdit.participantIds || []);
+        setLosers(matchToEdit.loserIds || []);
         setNote(matchToEdit.note || '');
         setSessionDate(
           matchToEdit.sessionDate ||
@@ -62,6 +82,18 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           activeAttendeeIds.length > 0
             ? activeAttendeeIds
             : players.filter((p) => p.active).map((p) => p.id);
+        
+        // Auto-detect mode if attendees < 6
+        if (initialParticipants.length > 0 && initialParticipants.length < 6) {
+          setEntryMode('alternative');
+          setSelectedSport('badminton');
+          setCustomSportName('Badminton');
+        } else {
+          setEntryMode('football');
+          setSelectedSport('football');
+          setCustomSportName('Fußball');
+        }
+
         setParticipants(initialParticipants);
         setLosers([]);
         setNote('');
@@ -74,21 +106,27 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Toggle between Winner and Loser
+  // Toggle between Winner and Loser (Football)
   const toggleLoserOrWinner = (id: string) => {
-    // If not participating yet, bring them into game as loser
     if (!participants.includes(id)) {
       setParticipants((prev) => [...prev, id]);
       setLosers((prev) => [...prev, id]);
       return;
     }
 
-    // If participating and currently loser -> turn into winner
     if (losers.includes(id)) {
       setLosers((prev) => prev.filter((lId) => lId !== id));
     } else {
-      // Is winner -> turn into loser
       setLosers((prev) => [...prev, id]);
+    }
+  };
+
+  // Toggle attendance for Alternative Sports (<6 players)
+  const toggleAttendance = (id: string) => {
+    if (participants.includes(id)) {
+      setParticipants((prev) => prev.filter((pId) => pId !== id));
+    } else {
+      setParticipants((prev) => [...prev, id]);
     }
   };
 
@@ -96,11 +134,9 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   const togglePause = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (participants.includes(id)) {
-      // Remove from match
       setParticipants((prev) => prev.filter((pId) => pId !== id));
       setLosers((prev) => prev.filter((lId) => lId !== id));
     } else {
-      // Add back to match as winner by default
       setParticipants((prev) => [...prev, id]);
       setLosers((prev) => prev.filter((lId) => lId !== id));
     }
@@ -115,44 +151,76 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
     setParticipants(allIds);
   };
 
+  const handleSwitchToAlternative = () => {
+    setEntryMode('alternative');
+    setSelectedSport('badminton');
+    setCustomSportName('Badminton');
+    setErrorMsg(null);
+  };
+
+  const handleSwitchToFootball = () => {
+    setEntryMode('football');
+    setSelectedSport('football');
+    setCustomSportName('Fußball');
+    setErrorMsg(null);
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (losers.length === 0) {
-      setErrorMsg('Bitte tippe mindestens einen Verlierer an (rote Kachel).');
-      return;
-    }
 
-    if (participants.length < 2) {
-      setErrorMsg('Mindestens 2 Spieler müssen an einem Spiel teilnehmen.');
-      return;
-    }
+    // Mode-specific validation
+    if (entryMode === 'football') {
+      if (participants.length < 6) {
+        setErrorMsg(
+          `Für Fußball-Ranglistenspiele sind mindestens 6 Personen (3vs3) erforderlich (aktuell ${participants.length} ausgewählt). Bitte mehr Spieler aktivieren oder oben auf "Alternativ-Sportart (< 6 Pers.)" umschalten.`
+        );
+        return;
+      }
 
-    if (losers.length === participants.length) {
-      setErrorMsg('Es können nicht alle beteiligten Spieler verloren haben. Mindestens ein Sieger muss übrig bleiben.');
-      return;
+      if (losers.length === 0) {
+        setErrorMsg('Bitte tippe mindestens einen Verlierer an (rote Kachel).');
+        return;
+      }
+
+      if (losers.length === participants.length) {
+        setErrorMsg('Es können nicht alle beteiligten Spieler verloren haben. Mindestens ein Sieger muss übrig bleiben.');
+        return;
+      }
+    } else {
+      // Alternative Sport validation
+      if (participants.length === 0) {
+        setErrorMsg('Bitte wähle mindestens einen anwesenden Spieler aus.');
+        return;
+      }
     }
 
     try {
       setIsSubmitting(true);
       setErrorMsg(null);
 
-      // Save or edit match
+      const isAlt = entryMode === 'alternative';
+      const finalActivityType: ActivityType = isAlt ? selectedSport : 'football';
+      const finalSportName = isAlt ? customSportName : 'Fußball';
+
       if (matchToEdit && onEditMatch) {
         await onEditMatch(matchToEdit.id, {
           participantIds: participants,
-          loserIds: losers,
+          loserIds: isAlt ? [] : losers,
           sessionDate,
           note: note.trim() || undefined,
+          activityType: finalActivityType,
+          sportName: finalSportName,
         });
       } else {
         await onSaveMatch({
           participantIds: participants,
-          loserIds: losers,
+          loserIds: isAlt ? [] : losers,
           sessionDate,
           note: note.trim() || undefined,
+          activityType: finalActivityType,
+          sportName: finalSportName,
         });
 
-        // Automatically remember participants for the next match
         if (onUpdateAttendees) {
           onUpdateAttendees(participants).catch(() => {});
         }
@@ -160,7 +228,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
 
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Fehler beim Speichern des Spiels.');
+      setErrorMsg(err.message || 'Fehler beim Speichern.');
     } finally {
       setIsSubmitting(false);
     }
@@ -177,13 +245,21 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
         <div className="p-5 sm:p-6 pb-4 border-b border-slate-800 shrink-0 bg-slate-900/95 backdrop-blur-md flex items-start justify-between">
           <div>
             <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-0.5">
-              VTV DIENSTAGSKICK · BIS 10 TORE
+              VTV DIENSTAGSKICK & HALLENTRAINING
             </span>
             <h2 className="text-xl sm:text-2xl font-bold text-white">
-              {matchToEdit ? 'Spielergebnis bearbeiten' : 'Neues Spiel erfassen'}
+              {matchToEdit
+                ? entryMode === 'football'
+                  ? 'Fußballspiel bearbeiten'
+                  : 'Termin bearbeiten'
+                : entryMode === 'football'
+                ? 'Neues Spiel erfassen'
+                : 'Alternativ-Sportart erfassen'}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Tippe einfach auf die Verlierer (Rot = Niederlage, Grün = Sieg).
+              {entryMode === 'football'
+                ? 'Bis 10 Tore · Mindestens 6 Spieler für das offizielle Ranking.'
+                : 'Unter 6 Personen: Protokollierung für Badminton, Touchtennis etc. (ohne Ranking-Punkte).'}
             </p>
           </div>
           <button
@@ -194,12 +270,121 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           </button>
         </div>
 
+        {/* Mode Selector Switch (Fußball >=6 vs. Alternativ <6) */}
+        <div className="px-5 sm:px-6 pt-3 pb-1 border-b border-slate-800 bg-slate-900/60">
+          <div className="grid grid-cols-2 p-1 bg-slate-800 rounded-2xl gap-1">
+            <button
+              type="button"
+              onClick={handleSwitchToFootball}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[38px] ${
+                entryMode === 'football'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <span>⚽ Fußball</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                entryMode === 'football' ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-700/60 text-slate-300'
+              }`}>
+                ab 6 Pers.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSwitchToAlternative}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 min-h-[38px] ${
+                entryMode === 'alternative'
+                  ? 'bg-purple-500 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <span>🏸 Alternativ</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                entryMode === 'alternative' ? 'bg-purple-950/40 text-purple-100' : 'bg-slate-700/60 text-slate-300'
+              }`}>
+                &lt; 6 Pers.
+              </span>
+            </button>
+          </div>
+        </div>
+
         {/* Scrollable Modal Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
           {errorMsg && (
             <div className="p-3.5 bg-rose-950/70 border border-rose-800 rounded-2xl flex items-center gap-3 text-rose-200 text-xs sm:text-sm">
               <ShieldAlert className="w-5 h-5 shrink-0 text-rose-400" />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Warning Banner in Football Mode if < 6 players */}
+          {entryMode === 'football' && participants.length < 6 && (
+            <div className="p-3.5 bg-amber-950/60 border border-amber-700/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 text-xs">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <div className="font-bold text-amber-300">
+                    Weniger als 6 Spieler anwesend ({participants.length} von 6)
+                  </div>
+                  <div className="text-[11px] text-amber-200/90 mt-0.5">
+                    Für Fußball werden mind. 6 Personen benötigt (3vs3). Spielt ihr heute Badminton oder Touchtennis?
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSwitchToAlternative}
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-xs shrink-0 self-start sm:self-auto shadow"
+              >
+                🏸 Auf Alternativ umstellen
+              </button>
+            </div>
+          )}
+
+          {/* Alternative Sport Choice (If in alternative mode) */}
+          {entryMode === 'alternative' && (
+            <div className="p-3.5 bg-purple-950/30 border border-purple-800/50 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                  <span className="text-base">🏸</span> Gespielte Sportart auswählen:
+                </span>
+                <span className="text-[10px] font-mono text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-800/50">
+                  Keine Punkte fürs Ranking
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {ALTERNATIVE_SPORTS.map((sport) => {
+                  const isSelected = customSportName === sport.name;
+                  return (
+                    <button
+                      key={sport.name}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSport(sport.id);
+                        setCustomSportName(sport.name);
+                      }}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        isSelected
+                          ? 'bg-purple-600 border-purple-400 text-white shadow-md'
+                          : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                      }`}
+                    >
+                      <span>{sport.icon}</span>
+                      <span>{sport.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Informational callout */}
+              <div className="p-2.5 bg-purple-950/50 border border-purple-800/40 rounded-xl flex items-start gap-2 text-[11px] text-purple-200">
+                <Info className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Wichtig:</strong> Dieser Termin wird protokolliert, wer da war. Es werden <strong>keine Punkte</strong> vergeben und weder Sieg noch Niederlage im Fußball-Ranking gezählt.
+                </span>
+              </div>
             </div>
           )}
 
@@ -235,7 +420,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
                 onClick={() => {
                   const d = new Date();
                   const day = d.getDay();
-                  const diff = (day >= 2 ? day - 2 : 7 - (2 - day));
+                  const diff = day >= 2 ? day - 2 : 7 - (2 - day);
                   d.setDate(d.getDate() - (diff === 0 ? 7 : diff));
                   setSessionDate(d.toISOString().split('T')[0]);
                 }}
@@ -246,76 +431,96 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
             </div>
           </div>
 
-          {/* Counter Status Strip */}
-          <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-2xl space-y-2">
-            <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-              <div className="flex items-center gap-1.5 text-emerald-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span>{winnersCount} Gewinner (Grün)</span>
+          {/* Counter Status Strip (Fußball vs. Alternativ) */}
+          {entryMode === 'football' ? (
+            <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span>{winnersCount} Gewinner (Grün)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-rose-400">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span>{losers.length} Verlierer (Rot)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-slate-400 font-normal">
+                  <span className="w-2 h-2 rounded-full bg-slate-600" />
+                  <span>{pausedCount} Pause</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-rose-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span>{losers.length} Verlierer (Rot)</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-slate-400 font-normal">
-                <span className="w-2 h-2 rounded-full bg-slate-600" />
-                <span>{pausedCount} Pause</span>
-              </div>
+              {/* Dynamic Format Detection Banner */}
+              {losers.length > 0 && winnersCount > 0 && (
+                <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Erkannt:</span>
+                  {losers.length === 3 && winnersCount === 3 ? (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 font-mono font-medium">
+                      ⚡ 3 vs. 3
+                    </span>
+                  ) : losers.length === 4 && winnersCount === 4 ? (
+                    <span className="px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-700/60 text-sky-300 font-mono font-medium">
+                      🛡️ 4 vs. 4
+                    </span>
+                  ) : losers.length === 4 && winnersCount === 3 ? (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-amber-600/70 text-amber-300 font-mono font-bold flex items-center gap-1">
+                      <span>🔥</span> 3 vs. 4 (🏆 Unterzahl-Sieg für das 3er-Team!)
+                    </span>
+                  ) : losers.length === 3 && winnersCount === 4 ? (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-950/70 border border-amber-800/60 text-amber-200 font-mono font-medium">
+                      🔥 3 vs. 4 (4er-Team gewinnt)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                      {winnersCount} vs. {losers.length}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-
-            {/* Dynamic Format Detection Banner */}
-            {losers.length > 0 && winnersCount > 0 && (
-              <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Erkannt:</span>
-                {losers.length === 3 && winnersCount === 3 ? (
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 font-mono font-medium">
-                    ⚡ 3 vs. 3
-                  </span>
-                ) : losers.length === 4 && winnersCount === 4 ? (
-                  <span className="px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-700/60 text-sky-300 font-mono font-medium">
-                    🛡️ 4 vs. 4
-                  </span>
-                ) : losers.length === 4 && winnersCount === 3 ? (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-950/90 border border-amber-600/70 text-amber-300 font-mono font-bold flex items-center gap-1">
-                    <span>🔥</span> 3 vs. 4 (🏆 Unterzahl-Sieg für das 3er-Team!)
-                  </span>
-                ) : losers.length === 3 && winnersCount === 4 ? (
-                  <span className="px-2 py-0.5 rounded-md bg-amber-950/70 border border-amber-800/60 text-amber-200 font-mono font-medium">
-                    🔥 3 vs. 4 (4er-Team gewinnt)
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
-                    {winnersCount} vs. {losers.length}
-                  </span>
-                )}
+          ) : (
+            <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-2xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-400" />
+                <span className="text-white font-semibold">
+                  {participants.length} von {activePlayers.length} Spielern anwesend
+                </span>
               </div>
-            )}
-          </div>
+              <span className="text-purple-300 font-mono text-[11px] font-semibold">
+                🏸 {customSportName}
+              </span>
+            </div>
+          )}
 
-          {/* Player Selection: Large Touch Chips (Große Kacheln statt Dropdowns) */}
+          {/* Player Selection: Large Touch Chips */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                Spieler antippen (Umschalten Sieg / Niederlage):
+                {entryMode === 'football'
+                  ? 'Spieler antippen (Umschalten Sieg / Niederlage):'
+                  : 'Anwesende Spieler antippen (Grün = Dabei):'}
               </span>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleResetLosers}
-                  className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  Verlierer leeren
-                </button>
-                <span className="text-slate-600">·</span>
+                {entryMode === 'football' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleResetLosers}
+                      className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Verlierer leeren
+                    </button>
+                    <span className="text-slate-600">·</span>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={handleSelectAllPlayers}
                   className="text-xs text-emerald-400 hover:text-emerald-300 font-medium"
                 >
-                  Alle 12 aktiv
+                  Alle {activePlayers.length} aktiv
                 </button>
               </div>
             </div>
@@ -326,15 +531,74 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
                 const isParticipating = participants.includes(player.id);
                 const isLoser = losers.includes(player.id);
 
+                if (entryMode === 'football') {
+                  return (
+                    <div
+                      key={player.id}
+                      onClick={() => toggleLoserOrWinner(player.id)}
+                      className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between min-h-[82px] active:scale-[0.98] ${
+                        isLoser
+                          ? 'bg-rose-950/85 border-rose-500 text-white shadow-lg shadow-rose-950/40 ring-1 ring-rose-500/50'
+                          : isParticipating
+                          ? 'bg-emerald-950/70 border-emerald-500 text-white shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/40'
+                          : 'bg-slate-800/40 border-slate-700/40 text-slate-500 opacity-60 hover:opacity-85'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between w-full">
+                        <span className="font-extrabold text-base truncate pr-1 text-white">
+                          {player.name}
+                        </span>
+                        {isLoser ? (
+                          <span className="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow">
+                            ✕
+                          </span>
+                        ) : isParticipating ? (
+                          <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-xs font-black shrink-0 shadow">
+                            ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
+                            Pause
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between text-xs pt-1.5 border-t border-slate-700/40">
+                        <span className="font-bold text-[11px] tracking-wide">
+                          {isLoser ? (
+                            <span className="text-rose-300 flex items-center gap-1">🔴 Verlierer</span>
+                          ) : isParticipating ? (
+                            <span className="text-emerald-300 flex items-center gap-1">🟢 Gewinner</span>
+                          ) : (
+                            <span className="text-slate-400">⏸️ Pausiert</span>
+                          )}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={(e) => togglePause(e, player.id)}
+                          title={isParticipating ? 'Aussetzen' : 'Mitspielen'}
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg transition-colors ${
+                            isParticipating
+                              ? 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700'
+                              : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold'
+                          }`}
+                        >
+                          {isParticipating ? 'Pause' : '+ Rein'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Alternative mode: Clean attendance tiles
                 return (
                   <div
                     key={player.id}
-                    onClick={() => toggleLoserOrWinner(player.id)}
-                    className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between min-h-[82px] active:scale-[0.98] ${
-                      isLoser
-                        ? 'bg-rose-950/85 border-rose-500 text-white shadow-lg shadow-rose-950/40 ring-1 ring-rose-500/50'
-                        : isParticipating
-                        ? 'bg-emerald-950/70 border-emerald-500 text-white shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/40'
+                    onClick={() => toggleAttendance(player.id)}
+                    className={`relative p-3.5 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between min-h-[76px] active:scale-[0.98] ${
+                      isParticipating
+                        ? 'bg-emerald-950/70 border-emerald-500 text-white shadow-md shadow-emerald-950/30'
                         : 'bg-slate-800/40 border-slate-700/40 text-slate-500 opacity-60 hover:opacity-85'
                     }`}
                   >
@@ -342,45 +606,29 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
                       <span className="font-extrabold text-base truncate pr-1 text-white">
                         {player.name}
                       </span>
-                      {isLoser ? (
-                        <span className="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow">
-                          ✕
-                        </span>
-                      ) : isParticipating ? (
+                      {isParticipating ? (
                         <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-xs font-black shrink-0 shadow">
                           ✓
                         </span>
                       ) : (
                         <span className="text-[10px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-mono">
-                          Pause
+                          Nicht da
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-2.5 flex items-center justify-between text-xs pt-1.5 border-t border-slate-700/40">
+                    <div className="mt-2 flex items-center justify-between text-xs pt-1.5 border-t border-slate-700/40">
                       <span className="font-bold text-[11px] tracking-wide">
-                        {isLoser ? (
-                          <span className="text-rose-300 flex items-center gap-1">🔴 Verlierer</span>
-                        ) : isParticipating ? (
-                          <span className="text-emerald-300 flex items-center gap-1">🟢 Gewinner</span>
+                        {isParticipating ? (
+                          <span className="text-emerald-300">🟢 Anwesend</span>
                         ) : (
-                          <span className="text-slate-400">⏸️ Pausiert</span>
+                          <span className="text-slate-400">⚪ Abwesend</span>
                         )}
                       </span>
 
-                      {/* Pause / Play Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => togglePause(e, player.id)}
-                        title={isParticipating ? 'Aussetzen' : 'Mitspielen'}
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg transition-colors ${
-                          isParticipating
-                            ? 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700'
-                            : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold'
-                        }`}
-                      >
-                        {isParticipating ? 'Pause' : '+ Rein'}
-                      </button>
+                      <span className="text-[10px] text-slate-400">
+                        {isParticipating ? 'Dabei' : 'Tippen zum Hinzufügen'}
+                      </span>
                     </div>
                   </div>
                 );
@@ -391,13 +639,19 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           {/* Optional Note */}
           <div className="pt-1">
             <label className="block text-xs font-medium text-slate-400 mb-1">
-              Notiz / Bemerkung (optional, z. B. "10:8" oder "Golden Goal"):
+              {entryMode === 'football'
+                ? 'Notiz / Bemerkung (optional, z. B. "10:8" oder "Golden Goal"):'
+                : 'Notiz / Bemerkung (optional, z. B. "Doppel gespielt", "2 gegen 2"): '}
             </label>
             <input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="z. B. 10:9 nach Rückstand"
+              placeholder={
+                entryMode === 'football'
+                  ? 'z. B. 10:9 nach Rückstand'
+                  : 'z. B. Doppelturnier in der Halle'
+              }
               className="w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -416,11 +670,19 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           <button
             type="button"
             onClick={() => handleSubmit()}
-            disabled={isSubmitting || losers.length === 0}
+            disabled={
+              isSubmitting ||
+              (entryMode === 'football' && (losers.length === 0 || participants.length < 6)) ||
+              (entryMode === 'alternative' && participants.length === 0)
+            }
             className={`flex-1 sm:flex-initial px-6 py-2.5 text-xs sm:text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all min-h-[44px] ${
-              losers.length === 0
+              entryMode === 'football'
+                ? losers.length === 0 || participants.length < 6
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                  : 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-[0.98]'
+                : participants.length === 0
                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                : 'bg-emerald-400 hover:bg-emerald-300 text-slate-950 shadow-lg shadow-emerald-500/20 active:scale-[0.98]'
+                : 'bg-purple-500 hover:bg-purple-400 text-white shadow-lg shadow-purple-500/20 active:scale-[0.98]'
             }`}
           >
             <Check className="w-4 h-4 stroke-[3]" />
@@ -429,7 +691,9 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
                 ? 'Speichere...'
                 : matchToEdit
                 ? 'Änderungen speichern'
-                : 'Spiel werten & speichern ⚽'}
+                : entryMode === 'football'
+                ? 'Spiel werten & speichern ⚽'
+                : `${customSportName}-Termin protokollieren 🏸`}
             </span>
           </button>
         </div>

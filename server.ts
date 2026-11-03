@@ -65,6 +65,8 @@ interface Match {
   loserIds: string[];
   winnerIds: string[];
   note?: string;
+  activityType?: 'football' | 'badminton' | 'touchtennis' | 'other';
+  sportName?: string;
 }
 
 interface AppData {
@@ -189,9 +191,13 @@ app.get('/api/state', (_req, res) => {
 });
 
 app.post('/api/matches', (req, res) => {
-  const { participantIds, loserIds, sessionDate, note } = req.body;
+  const { participantIds, loserIds, sessionDate, note, activityType, sportName } = req.body;
+  const isAlternative = activityType && activityType !== 'football';
 
-  if (!Array.isArray(loserIds) || loserIds.length === 0) {
+  const finalLosers: string[] = Array.isArray(loserIds) ? loserIds : [];
+
+  // For football, at least one loser is needed to determine the match result
+  if (!isAlternative && finalLosers.length === 0) {
     return res.status(400).json({ error: 'Mindestens ein Verlierer muss angegeben werden.' });
   }
 
@@ -200,16 +206,20 @@ app.post('/api/matches', (req, res) => {
     ? participantIds
     : appData.activeAttendeeIds.length > 0
       ? appData.activeAttendeeIds
-      : loserIds;
+      : finalLosers;
+
+  if (finalParticipants.length === 0) {
+    return res.status(400).json({ error: 'Mindestens ein anwesender Spieler muss angegeben werden.' });
+  }
 
   // Ensure all losers are in participants list
-  for (const loserId of loserIds) {
+  for (const loserId of finalLosers) {
     if (!finalParticipants.includes(loserId)) {
       finalParticipants = [...finalParticipants, loserId];
     }
   }
 
-  const winnerIds = finalParticipants.filter((id) => !loserIds.includes(id));
+  const winnerIds = finalParticipants.filter((id) => !finalLosers.includes(id));
   const now = new Date();
   const dateStr = sessionDate || now.toISOString().split('T')[0];
   let matchTimestamp = now.toISOString();
@@ -223,11 +233,13 @@ app.post('/api/matches', (req, res) => {
     id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     timestamp: matchTimestamp,
     sessionDate: dateStr,
-    scoreTo: 10,
+    scoreTo: isAlternative ? 0 : 10,
     participantIds: finalParticipants,
-    loserIds,
+    loserIds: finalLosers,
     winnerIds,
     note: note || undefined,
+    activityType: activityType || 'football',
+    sportName: sportName || (isAlternative ? 'Badminton' : 'Fußball'),
   };
 
   appData.matches.unshift(newMatch);
@@ -261,14 +273,14 @@ app.delete('/api/matches/:id', requireAdminPin, (req, res) => {
 
 app.put('/api/matches/:id', requireAdminPin, (req, res) => {
   const { id } = req.params;
-  const { participantIds, loserIds, note, sessionDate } = req.body;
+  const { participantIds, loserIds, note, sessionDate, activityType, sportName } = req.body;
   const match = appData.matches.find((m) => m.id === id);
 
   if (!match) {
     return res.status(404).json({ error: 'Spiel nicht gefunden.' });
   }
 
-  if (Array.isArray(loserIds) && loserIds.length > 0) {
+  if (Array.isArray(loserIds)) {
     match.loserIds = loserIds;
   }
 
@@ -288,6 +300,12 @@ app.put('/api/matches/:id', requireAdminPin, (req, res) => {
   }
   if (sessionDate) {
     match.sessionDate = sessionDate;
+  }
+  if (activityType) {
+    match.activityType = activityType;
+  }
+  if (sportName) {
+    match.sportName = sportName;
   }
 
   saveData(appData);

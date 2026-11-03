@@ -3,20 +3,33 @@ import { AppData, Match, Player, PlayerStats, SortField } from '../types';
 export function calculatePlayerStats(data: AppData): PlayerStats[] {
   const { players, matches, activeAttendeeIds } = data;
   const histTotal = data.historicalTotalMatches || 73;
-  const totalMatches = histTotal + matches.length;
+
+  // ONLY football matches with >= 6 players count towards the football ranking
+  const footballMatches = matches.filter(
+    (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+  );
+  const totalMatches = histTotal + footballMatches.length;
+
+  // Alternative sessions (< 6 people or other sports like Badminton/Touchtennis)
+  const alternativeMatches = matches.filter(
+    (m) => (m.activityType && m.activityType !== 'football') || ((m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) < 6)
+  );
 
   return players.map((player) => {
     const histGames = player.historicalStats?.games || 0;
     const histLosses = player.historicalStats?.losses || 0;
     const histWins = player.historicalStats?.wins ?? Math.max(0, histGames - histLosses);
 
-    // Live matches recorded in the app
-    const playerMatches = matches.filter((m) => m.participantIds.includes(player.id));
-    const liveGames = playerMatches.length;
-    const liveLosses = matches.filter((m) => m.loserIds.includes(player.id)).length;
+    // Live FOOTBALL matches recorded in the app (only >= 6 players count for ranking)
+    const playerFootballMatches = footballMatches.filter((m) => m.participantIds.includes(player.id));
+    const liveGames = playerFootballMatches.length;
+    const liveLosses = footballMatches.filter((m) => m.loserIds.includes(player.id)).length;
     const liveWins = Math.max(0, liveGames - liveLosses);
 
-    // Combined total
+    // Alternative sessions attendance count (pure documentation, 0 ranking points)
+    const alternativeSessionsCount = alternativeMatches.filter((m) => m.participantIds.includes(player.id)).length;
+
+    // Combined total for football ranking
     const gamesPlayed = histGames + liveGames;
     const losses = histLosses + liveLosses;
     const wins = histWins + liveWins;
@@ -44,7 +57,7 @@ export function calculatePlayerStats(data: AppData): PlayerStats[] {
     let team3Games = 0, team3Wins = 0, team3Losses = 0;
     let team4Games = 0, team4Wins = 0, team4Losses = 0;
 
-    playerMatches.forEach((m) => {
+    playerFootballMatches.forEach((m) => {
       const isLoser = m.loserIds.includes(player.id);
       const myTeamSize = isLoser ? m.loserIds.length : m.winnerIds.length;
       const oppTeamSize = isLoser ? m.winnerIds.length : m.loserIds.length;
@@ -121,6 +134,7 @@ export function calculatePlayerStats(data: AppData): PlayerStats[] {
       lossRateTotal: Math.round(lossRateTotal * 10) / 10,
       winRate: Math.round(winRate * 10) / 10,
       isAttendeeToday,
+      alternativeSessionsCount,
       historical: player.historicalStats,
       team3: calcRates(team3Games, team3Wins, team3Losses),
       team4: calcRates(team4Games, team4Wins, team4Losses),
@@ -236,7 +250,13 @@ export function sortPlayerStats(stats: PlayerStats[], sortBy: SortField): Player
 }
 
 export function generateWhatsAppReport(data: AppData): string {
-  const totalMatches = (data.historicalTotalMatches || 73) + data.matches.length;
+  const footballMatches = data.matches.filter(
+    (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+  );
+  const totalMatches = (data.historicalTotalMatches || 73) + footballMatches.length;
+  const altMatches = data.matches.filter(
+    (m) => (m.activityType && m.activityType !== 'football') || ((m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) < 6)
+  );
   const stats = calculatePlayerStats(data);
   const sorted = sortPlayerStats(stats, 'points_desc').filter((s) => s.gamesPlayed > 0);
 
@@ -248,8 +268,11 @@ export function generateWhatsAppReport(data: AppData): string {
   }).format(new Date());
 
   let text = `⚽ *VTV Freier Grund – Dienstagskick* (${todayStr})\n`;
-  text += `Halle: VTV Freier Grund | Gesamtspiele: *${totalMatches}* (bis 10 Tore)\n\n`;
-  text += `🏆 *Dienstagskick Rangliste:*\n`;
+  text += `Halle: VTV Freier Grund | Fußball-Gesamtspiele: *${totalMatches}* (bis 10 Tore)\n`;
+  if (altMatches.length > 0) {
+    text += `🏸 *Alternativ-Sessions:* ${altMatches.length} Termine (<6 Pers., Badminton/Touchtennis ohne Punkte)\n`;
+  }
+  text += `\n🏆 *Dienstagskick Rangliste:*\n`;
 
   if (sorted.length === 0) {
     text += `Noch keine Spiele erfasst.\n`;

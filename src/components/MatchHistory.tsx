@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Trash2, Edit3, Calendar, Trophy, XCircle, CheckCircle, ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Trash2, Edit3, Calendar, XCircle, CheckCircle, ArrowLeft, Users, Info } from 'lucide-react';
 import { AppData, Match, Player } from '../types';
 import { AdminPinModal } from './AdminPinModal';
 import { isAdminAuthenticated } from '../utils/adminAuth';
@@ -27,6 +27,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     match?: Match;
     matchId?: string;
   } | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'football' | 'alternative'>('all');
 
   const playerMap = new Map<string, Player>();
   data.players.forEach((p) => playerMap.set(p.id, p));
@@ -69,7 +70,33 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
     setPendingAdminAction(null);
   };
 
-  const matches = data.matches;
+  const allMatches = data.matches;
+
+  const footballMatchesCount = useMemo(() => {
+    return allMatches.filter(
+      (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+    ).length;
+  }, [allMatches]);
+
+  const altMatchesCount = useMemo(() => {
+    return allMatches.filter(
+      (m) => (m.activityType && m.activityType !== 'football') || (m.participantIds?.length || 0) < 6
+    ).length;
+  }, [allMatches]);
+
+  const filteredMatches = useMemo(() => {
+    if (historyFilter === 'football') {
+      return allMatches.filter(
+        (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+      );
+    }
+    if (historyFilter === 'alternative') {
+      return allMatches.filter(
+        (m) => (m.activityType && m.activityType !== 'football') || (m.participantIds?.length || 0) < 6
+      );
+    }
+    return allMatches;
+  }, [allMatches, historyFilter]);
 
   return (
     <div className="space-y-6">
@@ -87,7 +114,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
             Spielprotokoll & Historie
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Chronologische Liste aller live erfassten Partien bis 10 Tore. (Bearbeiten & Löschen PIN-geschützt)
+            Chronologische Liste aller live erfassten Partien (Fußball bis 10 Tore & alternative Hallentermine unter 6 Personen).
           </p>
         </div>
 
@@ -95,28 +122,72 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
           onClick={onOpenNewMatch}
           className="px-4 py-2 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors shrink-0"
         >
-          + Neues Spiel erfassen
+          + Neuer Eintrag
         </button>
       </div>
 
+      {/* Filter Tabs */}
+      {allMatches.length > 0 && (
+        <div className="flex items-center gap-2 p-1 bg-slate-900 border border-slate-800 rounded-2xl w-fit">
+          <button
+            onClick={() => setHistoryFilter('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              historyFilter === 'all'
+                ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Alle ({allMatches.length})
+          </button>
+          <button
+            onClick={() => setHistoryFilter('football')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              historyFilter === 'football'
+                ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>⚽ Fußball</span>
+            <span className="font-mono text-[11px]">({footballMatchesCount})</span>
+          </button>
+          <button
+            onClick={() => setHistoryFilter('alternative')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              historyFilter === 'alternative'
+                ? 'bg-purple-500 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <span>🏸 Alternativ (&lt; 6 Pers.)</span>
+            <span className="font-mono text-[11px]">({altMatchesCount})</span>
+          </button>
+        </div>
+      )}
+
       {/* List */}
-      {matches.length === 0 ? (
+      {filteredMatches.length === 0 ? (
         <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
           <Calendar className="w-10 h-10 text-slate-600 mx-auto" />
-          <h3 className="text-base font-semibold text-white">Noch keine Spiele eingetragen</h3>
+          <h3 className="text-base font-semibold text-white">Keine Einträge in dieser Ansicht</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Sobald am Dienstag die ersten Partien bis 10 Tore gespielt werden, tauchen sie hier detailliert mit Gewinnern und Verlierern auf.
+            {historyFilter === 'alternative'
+              ? 'Es wurden noch keine alternativen Hallensessions (< 6 Personen wie Badminton oder Touchtennis) eingetragen.'
+              : 'Sobald am Dienstag die ersten Partien gespielt werden, tauchen sie hier auf.'}
           </p>
           <button
             onClick={onOpenNewMatch}
             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
           >
-            Erstes Spiel eintragen
+            Neuen Eintrag anlegen
           </button>
         </div>
       ) : (
         <div className="space-y-3">
-          {matches.map((match, idx) => {
+          {filteredMatches.map((match, idx) => {
+            const isAlternative =
+              (match.activityType && match.activityType !== 'football') ||
+              (match.participantIds?.length || 0) < 6;
+
             let dateFormatted: string;
             if (match.sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(match.sessionDate)) {
               const [y, m, d] = match.sessionDate.split('-').map(Number);
@@ -135,64 +206,83 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
               });
             }
 
-            const losers = match.loserIds.map((id) => playerMap.get(id)?.name || 'Unbekannt');
-            const winners = match.winnerIds.map((id) => playerMap.get(id)?.name || 'Unbekannt');
+            const attendees = (match.participantIds || []).map(
+              (id) => playerMap.get(id)?.name || 'Unbekannt'
+            );
+            const losers = (match.loserIds || []).map((id) => playerMap.get(id)?.name || 'Unbekannt');
+            const winners = (match.winnerIds || []).map((id) => playerMap.get(id)?.name || 'Unbekannt');
 
             return (
               <div
                 key={match.id}
                 className="p-5 bg-slate-900 border border-slate-800 rounded-2xl space-y-4 hover:border-slate-700 transition-colors"
               >
-                {/* Top Info: Date ONLY (No time) */}
+                {/* Top Info Bar */}
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded-md">
-                      #{matches.length - idx}
+                      #{allMatches.length - idx}
                     </span>
                     <span className="text-slate-300 font-medium">{dateFormatted}</span>
                     <span className="text-slate-500">·</span>
-                    {(() => {
-                      const lCount = match.loserIds.length;
-                      const wCount = match.winnerIds.length;
-                      const is3v3 = lCount === 3 && wCount === 3;
-                      const is4v4 = lCount === 4 && wCount === 4;
-                      const is3v4 = (lCount === 3 && wCount === 4) || (lCount === 4 && wCount === 3);
-                      const isUnderdogVictory = is3v4 && wCount === 3;
 
-                      if (isUnderdogVictory) {
+                    {/* Badge: Football format vs. Alternative Session */}
+                    {isAlternative ? (
+                      <span className="bg-purple-950/80 border border-purple-700/60 text-purple-300 px-2.5 py-0.5 rounded-md font-mono text-[11px] font-bold flex items-center gap-1 shadow-sm">
+                        <span>🏸</span>
+                        <span>{match.sportName || 'Alternativ-Sportart'}</span>
+                        <span className="opacity-80 font-normal">(&lt; 6 Pers. · Ohne Wertung)</span>
+                      </span>
+                    ) : (
+                      (() => {
+                        const lCount = match.loserIds?.length || 0;
+                        const wCount = match.winnerIds?.length || 0;
+                        const is3v3 = lCount === 3 && wCount === 3;
+                        const is4v4 = lCount === 4 && wCount === 4;
+                        const is3v4 = (lCount === 3 && wCount === 4) || (lCount === 4 && wCount === 3);
+                        const isUnderdogVictory = is3v4 && wCount === 3;
+
+                        if (isUnderdogVictory) {
+                          return (
+                            <span className="bg-amber-950/80 border border-amber-600/70 text-amber-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold flex items-center gap-1 shadow-sm">
+                              <span>🔥</span> 3 vs 4 (Unterzahl-Sieg des 3er-Teams!)
+                            </span>
+                          );
+                        }
+                        if (is3v4) {
+                          return (
+                            <span className="bg-amber-950/40 border border-amber-800/40 text-amber-200 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                              3 vs 4 (4er-Team gewinnt)
+                            </span>
+                          );
+                        }
+                        if (is3v3) {
+                          return (
+                            <span className="bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                              ⚡ 3 vs 3 (3er-Teams)
+                            </span>
+                          );
+                        }
+                        if (is4v4) {
+                          return (
+                            <span className="bg-sky-950/60 border border-sky-800/50 text-sky-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
+                              🛡️ 4 vs 4 (4er-Teams)
+                            </span>
+                          );
+                        }
                         return (
-                          <span className="bg-amber-950/80 border border-amber-600/70 text-amber-300 px-2 py-0.5 rounded font-mono text-[11px] font-bold flex items-center gap-1 shadow-sm">
-                            <span>🔥</span> 3 vs 4 (Unterzahl-Sieg des 3er-Teams!)
+                          <span className="text-slate-400 font-mono text-[11px]">
+                            ⚽ {wCount} gegen {lCount}
                           </span>
                         );
-                      }
-                      if (is3v4) {
-                        return (
-                          <span className="bg-amber-950/40 border border-amber-800/40 text-amber-200 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
-                            3 vs 4 (4er-Team gewinnt)
-                          </span>
-                        );
-                      }
-                      if (is3v3) {
-                        return (
-                          <span className="bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
-                            ⚡ 3 vs 3 (3er-Teams)
-                          </span>
-                        );
-                      }
-                      if (is4v4) {
-                        return (
-                          <span className="bg-sky-950/60 border border-sky-800/50 text-sky-300 px-2 py-0.5 rounded font-mono text-[11px] font-medium">
-                            🛡️ 4 vs 4 (4er-Teams)
-                          </span>
-                        );
-                      }
-                      return (
-                        <span className="text-slate-400 font-mono text-[11px]">
-                          {wCount} gegen {lCount}
-                        </span>
-                      );
-                    })()}
+                      })()
+                    )}
+
+                    {match.note && (
+                      <span className="text-slate-400 italic text-[11px] hidden sm:inline">
+                        „{match.note}“
+                      </span>
+                    )}
                   </div>
 
                   {/* Actions: Edit & Delete (Protected with PIN 57290) */}
@@ -219,7 +309,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => handleRequestEdit(match)}
-                        title="Spiel bearbeiten (PIN erforderlich)"
+                        title="Eintrag bearbeiten (PIN erforderlich)"
                         className="px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 flex items-center gap-1.5 transition-colors"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -227,7 +317,7 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                       </button>
                       <button
                         onClick={() => handleRequestDeleteClick(match.id)}
-                        title="Spiel löschen (PIN erforderlich)"
+                        title="Eintrag löschen (PIN erforderlich)"
                         className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -236,50 +326,82 @@ export const MatchHistory: React.FC<MatchHistoryProps> = ({
                   )}
                 </div>
 
-                {/* Team Losers vs Winners Breakdown */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Losers (Red) */}
-                  <div className="p-3.5 bg-rose-950/30 border border-rose-800/40 rounded-xl space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
-                        <XCircle className="w-3.5 h-3.5" />
-                        Verlierer ({losers.length})
+                {/* Content body: Alternative Session vs. Football Match */}
+                {isAlternative ? (
+                  <div className="p-4 bg-purple-950/20 border border-purple-800/40 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-purple-300 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-purple-400" />
+                        Anwesende Spieler ({attendees.length})
                       </span>
-                      <span className="text-[10px] text-rose-400/80 font-mono">Endstand bis 10</span>
+                      <span className="text-[11px] text-purple-300/80 font-mono">
+                        Hallen-Protokoll · Keine Punkte vergeben
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {losers.map((name, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 text-xs font-semibold bg-rose-900/60 border border-rose-700/60 text-rose-200 rounded-lg"
-                        >
-                          {name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* Winners (Green) */}
-                  <div className="p-3.5 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        Gewinner ({winners.length})
-                      </span>
-                      <span className="text-[10px] text-emerald-400/80 font-mono">10 Tore erreicht</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {winners.map((name, i) => (
+                    <div className="flex flex-wrap gap-2">
+                      {attendees.map((name, i) => (
                         <span
                           key={i}
-                          className="px-2 py-1 text-xs font-semibold bg-emerald-900/60 border border-emerald-700/60 text-emerald-200 rounded-lg"
+                          className="px-2.5 py-1 text-xs font-semibold bg-purple-900/50 border border-purple-700/60 text-purple-200 rounded-lg flex items-center gap-1.5"
                         >
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
                           {name}
                         </span>
                       ))}
                     </div>
+
+                    {match.note && (
+                      <p className="text-xs text-slate-300 pt-1 border-t border-purple-900/40 italic">
+                        Notiz: {match.note}
+                      </p>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Losers (Red) */}
+                    <div className="p-3.5 bg-rose-950/30 border border-rose-800/40 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                          <XCircle className="w-3.5 h-3.5" />
+                          Verlierer ({losers.length})
+                        </span>
+                        <span className="text-[10px] text-rose-400/80 font-mono">Endstand bis 10</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {losers.map((name, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-1 text-xs font-semibold bg-rose-900/60 border border-rose-700/60 text-rose-200 rounded-lg"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Winners (Green) */}
+                    <div className="p-3.5 bg-emerald-950/30 border border-emerald-800/40 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          Gewinner ({winners.length})
+                        </span>
+                        <span className="text-[10px] text-emerald-400/80 font-mono">10 Tore erreicht</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {winners.map((name, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-1 text-xs font-semibold bg-emerald-900/60 border border-emerald-700/60 text-emerald-200 rounded-lg"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

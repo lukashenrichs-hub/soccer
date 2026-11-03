@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AppData, Match, Player } from '../types';
+import { ActivityType, AppData, Match, Player } from '../types';
 
 const STORAGE_KEY = 'vtv_freier_grund_data_cache';
 const PERMANENT_MATCHES_KEY = 'vtv_permanent_matches_history';
@@ -211,9 +211,11 @@ export function useFootballData() {
 
   const addMatch = async (matchData: {
     participantIds?: string[];
-    loserIds: string[];
+    loserIds?: string[];
     sessionDate?: string;
     note?: string;
+    activityType?: ActivityType;
+    sportName?: string;
   }) => {
     try {
       setIsSaving(true);
@@ -274,6 +276,8 @@ export function useFootballData() {
       loserIds?: string[];
       sessionDate?: string;
       note?: string;
+      activityType?: ActivityType;
+      sportName?: string;
     },
     pin: string = '57290'
   ) => {

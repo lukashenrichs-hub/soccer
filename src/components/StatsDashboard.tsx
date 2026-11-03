@@ -39,7 +39,13 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayerStats, setSelectedPlayerStats] = useState<PlayerStats | null>(null);
 
-  const totalMatches = (data.historicalTotalMatches || 73) + data.matches.length;
+  const footballMatches = useMemo(() => {
+    return data.matches.filter(
+      (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+    );
+  }, [data.matches]);
+
+  const totalMatches = (data.historicalTotalMatches || 73) + footballMatches.length;
 
   // Calculate raw stats for all players
   const rawStats = useMemo(() => calculatePlayerStats(data), [data]);
@@ -1337,10 +1343,25 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Alternative Sports Attendance Badge */}
+              {selectedPlayerStats.alternativeSessionsCount && selectedPlayerStats.alternativeSessionsCount > 0 ? (
+                <div className="p-3 bg-purple-950/40 border border-purple-800/50 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-purple-300">
+                    <span className="text-base">🏸</span>
+                    <span className="font-semibold">
+                      {selectedPlayerStats.alternativeSessionsCount}x Alternativ-Sportart (&lt; 6 Pers.) dabei
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-purple-300 bg-purple-950 px-2 py-0.5 rounded font-mono">
+                    Hallen-Protokoll (Ohne Punkte)
+                  </span>
+                </div>
+              ) : null}
+
               {/* Match History for this player */}
               <div>
                 <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
-                  Beteiligte Spiele ({selectedPlayerMatches.length})
+                  Beteiligte Spiele & Termine ({selectedPlayerMatches.length})
                 </h4>
                 {selectedPlayerMatches.length === 0 ? (
                   <p className="text-xs text-slate-400 p-4 bg-slate-800/40 rounded-xl text-center">
@@ -1349,12 +1370,9 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                 ) : (
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {selectedPlayerMatches.map((m) => {
-                      const didLose = m.loserIds.includes(selectedPlayerStats.player.id);
-                      const myTeamSize = didLose ? m.loserIds.length : m.winnerIds.length;
-                      const oppTeamSize = didLose ? m.winnerIds.length : m.loserIds.length;
-                      const is3v4 = (myTeamSize === 3 && oppTeamSize === 4) || (myTeamSize === 4 && oppTeamSize === 3);
-                      const is3v3 = myTeamSize === 3 && oppTeamSize === 3;
-                      const is4v4 = myTeamSize === 4 && oppTeamSize === 4;
+                      const isAlternative =
+                        (m.activityType && m.activityType !== 'football') ||
+                        (m.participantIds?.length || 0) < 6;
 
                       let dateFormatted = m.sessionDate;
                       if (m.sessionDate && /^\d{4}-\d{2}-\d{2}$/.test(m.sessionDate)) {
@@ -1365,6 +1383,42 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({
                           month: '2-digit',
                         });
                       }
+
+                      if (isAlternative) {
+                        return (
+                          <div
+                            key={m.id}
+                            className="p-3 rounded-xl border border-purple-800/40 bg-purple-950/30 flex items-center justify-between text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">🏸</span>
+                              <div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-purple-200">
+                                    {m.sportName || 'Alternativ-Sportart'}
+                                  </span>
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-purple-900/60 text-purple-300">
+                                    Anwesend (&lt; 6 Pers.)
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-400">
+                                  {dateFormatted} {m.note ? `· ${m.note}` : ''}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="font-mono text-[10px] text-purple-300 bg-purple-950 px-2 py-0.5 rounded">
+                              Ohne Punkte
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const didLose = m.loserIds.includes(selectedPlayerStats.player.id);
+                      const myTeamSize = didLose ? m.loserIds.length : m.winnerIds.length;
+                      const oppTeamSize = didLose ? m.winnerIds.length : m.loserIds.length;
+                      const is3v4 = (myTeamSize === 3 && oppTeamSize === 4) || (myTeamSize === 4 && oppTeamSize === 3);
+                      const is3v3 = myTeamSize === 3 && oppTeamSize === 3;
+                      const is4v4 = myTeamSize === 4 && oppTeamSize === 4;
 
                       let formatBadge = `${myTeamSize} vs ${oppTeamSize}`;
                       if (is3v3) formatBadge = '3 vs 3';

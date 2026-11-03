@@ -22,15 +22,13 @@
 }
 ::-webkit-scrollbar-thumb {
   background: #334155;
-  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
 
 /* =========================================================================
-   LIGHT MODE STYLING (Heller Betrachtungsmodus)
-   Preserves dark mode as primary default and adapts surfaces cleanly to light
+   LIGHT MODE STYLING (Heller Betrachtungsmodus - Optimierter Kontrast)
    ========================================================================= */
 html.light body {
   background-color: #f8fafc;
@@ -47,7 +45,7 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* Light Mode Backgrounds */
+/* Surfaces & Containers */
 html.light .bg-slate-950,
 html.light .bg-slate-950\/95,
 html.light .bg-slate-950\/90,
@@ -76,7 +74,7 @@ html.light .bg-slate-800\/40 {
   background-color: #f1f5f9 !important;
 }
 
-/* Light Mode Borders */
+/* High Contrast Borders */
 html.light .border-slate-800,
 html.light .border-slate-800\/90,
 html.light .border-slate-800\/80,
@@ -86,14 +84,13 @@ html.light .border-slate-700,
 html.light .border-slate-700\/90,
 html.light .border-slate-700\/80,
 html.light .border-slate-700\/70,
-html.light .border-slate-700\/60 {
-  border-color: #e2e8f0 !important;
+html.light .border-slate-700\/60,
+html.light .border-slate-700\/50,
+html.light .border-slate-700\/40 {
+  border-color: #cbd5e1 !important;
 }
 
-/* Light Mode Text */
-html.light .text-white {
-  color: #0f172a !important;
-}
+/* High Contrast Base Typography */
 html.light .text-slate-100 {
   color: #0f172a !important;
 }
@@ -104,10 +101,145 @@ html.light .text-slate-300 {
   color: #334155 !important;
 }
 html.light .text-slate-400 {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 html.light .text-slate-500 {
-  color: #94a3b8 !important;
+  color: #64748b !important;
+}
+
+/* Do not overwrite text-white inside colored action buttons */
+html.light h1.text-white,
+html.light h2.text-white,
+html.light h3.text-white,
+html.light h4.text-white,
+html.light span.text-white:not(.bg-rose-600 *):not(.bg-purple-600 *):not(.bg-purple-500 *):not(.bg-emerald-600 *),
+html.light div.text-white:not(.bg-rose-600 *):not(.bg-purple-600 *):not(.bg-purple-500 *):not(.bg-emerald-600 *) {
+  color: #0f172a;
+}
+
+/* High-Contrast Accent Text in Light Mode (replaces washed-out dark-mode neons) */
+html.light .text-emerald-400,
+html.light .text-emerald-300,
+html.light .text-emerald-200 {
+  color: #047857 !important; /* emerald-700: crisp & readable on white */
+}
+
+html.light .text-amber-400,
+html.light .text-amber-300,
+html.light .text-amber-200 {
+  color: #b45309 !important; /* amber-700: deep contrast */
+}
+
+html.light .text-yellow-400,
+html.light .text-yellow-300,
+html.light .text-yellow-200 {
+  color: #854d0e !important; /* yellow-800 */
+}
+
+html.light .text-sky-400,
+html.light .text-sky-300,
+html.light .text-sky-200 {
+  color: #0369a1 !important; /* sky-700 */
+}
+
+html.light .text-rose-400,
+html.light .text-rose-300,
+html.light .text-rose-200 {
+  color: #be123c !important; /* rose-700 */
+}
+
+html.light .text-purple-400,
+html.light .text-purple-300,
+html.light .text-purple-200 {
+  color: #6b21a8 !important; /* purple-800 */
+}
+
+/* Tinted Card Backgrounds adapted for Light Mode */
+html.light .bg-emerald-950,
+html.light .bg-emerald-950\/80,
+html.light .bg-emerald-950\/70,
+html.light .bg-emerald-950\/60,
+html.light .bg-emerald-950\/40,
+html.light .bg-emerald-950\/30 {
+  background-color: #ecfdf5 !important; /* emerald-50 */
+  border-color: #a7f3d0 !important; /* emerald-200 */
+}
+
+html.light .bg-rose-950,
+html.light .bg-rose-950\/85,
+html.light .bg-rose-950\/70,
+html.light .bg-rose-950\/40,
+html.light .bg-rose-950\/30 {
+  background-color: #fff1f2 !important; /* rose-50 */
+  border-color: #fecdd3 !important; /* rose-200 */
+}
+
+html.light .bg-sky-950,
+html.light .bg-sky-950\/80,
+html.light .bg-sky-950\/60,
+html.light .bg-sky-950\/40,
+html.light .bg-sky-950\/30 {
+  background-color: #f0f9ff !important; /* sky-50 */
+  border-color: #bae6fd !important; /* sky-200 */
+}
+
+html.light .bg-amber-950,
+html.light .bg-amber-950\/90,
+html.light .bg-amber-950\/80,
+html.light .bg-amber-950\/70,
+html.light .bg-amber-950\/60,
+html.light .bg-amber-950\/40,
+html.light .bg-amber-950\/30 {
+  background-color: #fffbeb !important; /* amber-50 */
+  border-color: #fde68a !important; /* amber-200 */
+}
+
+html.light .bg-purple-950,
+html.light .bg-purple-950\/80,
+html.light .bg-purple-950\/70,
+html.light .bg-purple-950\/60,
+html.light .bg-purple-950\/50,
+html.light .bg-purple-950\/40,
+html.light .bg-purple-950\/30,
+html.light .bg-purple-950\/20 {
+  background-color: #faf5ff !important; /* purple-50 */
+  border-color: #e9d5ff !important; /* purple-200 */
+}
+
+/* Badges inside tinted cards */
+html.light .bg-emerald-900\/60,
+html.light .bg-emerald-900\/50 {
+  background-color: #d1fae5 !important;
+  border-color: #6ee7b7 !important;
+  color: #065f46 !important;
+}
+
+html.light .bg-rose-900\/60,
+html.light .bg-rose-900\/50 {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+  color: #9f1239 !important;
+}
+
+html.light .bg-purple-900\/60,
+html.light .bg-purple-900\/50 {
+  background-color: #f3e8ff !important;
+  border-color: #d8b4fe !important;
+  color: #581c87 !important;
+}
+
+/* Ensure action buttons with solid colors have high contrast */
+html.light button.bg-rose-600,
+html.light button.bg-rose-500,
+html.light button.bg-purple-600,
+html.light button.bg-purple-500 {
+  color: #ffffff !important;
+}
+
+html.light button.bg-emerald-400,
+html.light button.bg-emerald-500 {
+  color: #022c22 !important; /* dark emerald font on bright green */
+  font-weight: 700 !important;
 }
 
 /* Inputs & Form controls in Light Mode */
@@ -121,18 +253,18 @@ html.light select {
 }
 
 html.light input::placeholder {
-  color: #94a3b8 !important;
+  color: #64748b !important;
 }
 
-/* Cards & Hover states */
+/* Hover States in Light Mode */
 html.light .hover\:bg-slate-800\/50:hover {
-  background-color: #f8fafc !important;
-}
-html.light .hover\:bg-slate-800:hover {
   background-color: #f1f5f9 !important;
 }
-html.light .hover\:bg-slate-700:hover {
+html.light .hover\:bg-slate-800:hover {
   background-color: #e2e8f0 !important;
+}
+html.light .hover\:bg-slate-700:hover {
+  background-color: #cbd5e1 !important;
 }
 
 /* Modals & Backdrop */

@@ -10,7 +10,7 @@ import { QuickMatchModal } from './components/QuickMatchModal';
 import { ShareModal } from './components/ShareModal';
 import { ColdStartLoading } from './components/ColdStartLoading';
 import { MatchCelebrationModal } from './components/MatchCelebrationModal';
-import { Match } from './types';
+import { Match, ActivityType } from './types';
 import { 
   Trophy, 
   History, 
@@ -58,13 +58,23 @@ export default function App() {
 
   const handleSaveMatch = async (matchData: {
     participantIds: string[];
-    loserIds: string[];
+    loserIds?: string[];
     sessionDate?: string;
     note?: string;
+    activityType?: ActivityType;
+    sportName?: string;
   }) => {
     const newMatch = await addMatch(matchData);
     if (newMatch) {
-      setCelebrationMatch(newMatch);
+      if ((newMatch.activityType || 'football') === 'football' && newMatch.participantIds.length >= 6) {
+        setCelebrationMatch(newMatch);
+      } else {
+        const sport = newMatch.sportName || 'Alternativ-Sportart';
+        setSaveSuccessToast(`🏸 ${sport}-Termin erfolgreich protokolliert! (Keine Punkte fürs Fußball-Ranking)`);
+        setTimeout(() => {
+          setSaveSuccessToast(null);
+        }, 4000);
+      }
     }
     return newMatch;
   };
@@ -76,10 +86,12 @@ export default function App() {
       loserIds?: string[];
       sessionDate?: string;
       note?: string;
+      activityType?: ActivityType;
+      sportName?: string;
     }
   ) => {
     const updated = await editMatch(id, matchData);
-    setSaveSuccessToast('Spielergebnis erfolgreich aktualisiert! ✏️');
+    setSaveSuccessToast('Eintrag erfolgreich aktualisiert! ✏️');
     setTimeout(() => {
       setSaveSuccessToast(null);
     }, 3500);
@@ -111,14 +123,17 @@ export default function App() {
     );
   }
 
-  // Calculate total games: 73 historical + live matches
+  // Calculate total football games: 73 historical + live matches (>= 6 players)
   const historicalMatches = data.historicalTotalMatches || 73;
-  const totalGamesCount = historicalMatches + data.matches.length;
+  const footballMatches = data.matches.filter(
+    (m) => (m.activityType || 'football') === 'football' && (m.participantIds?.length || 0) >= 6
+  );
+  const totalGamesCount = historicalMatches + footballMatches.length;
 
   // Compute monthly match count (current month)
   const currentMonthPrefix = new Date().toISOString().slice(0, 7);
   const currentMonthName = new Date().toLocaleDateString('de-DE', { month: 'long' });
-  const monthMatchesCount = data.matches.filter((m) => {
+  const monthMatchesCount = footballMatches.filter((m) => {
     const matchMonth = m.sessionDate
       ? m.sessionDate.slice(0, 7)
       : new Date(m.timestamp).toISOString().slice(0, 7);

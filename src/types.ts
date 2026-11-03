@@ -12,6 +12,8 @@ export interface Player {
   historicalStats?: HistoricalStats;
 }
 
+export type ActivityType = 'football' | 'badminton' | 'touchtennis' | 'other';
+
 export interface Match {
   id: string;
   timestamp: string;
@@ -21,6 +23,8 @@ export interface Match {
   loserIds: string[];
   winnerIds: string[];
   note?: string;
+  activityType?: ActivityType; // default 'football'
+  sportName?: string;         // e.g. "Badminton", "Touchtennis", "Freies Training"
 }
 
 export interface AppData {
@@ -58,6 +62,7 @@ export interface PlayerStats {
   lossRateTotal: number;     // Quote: Niederlagen / Gesamtspiele aller Runden (%)
   winRate: number;           // Quote: Siege / eigene Spiele (%)
   isAttendeeToday: boolean;  // Heute in der Halle anwesend
+  alternativeSessionsCount?: number; // Termine mit Alternativ-Sportarten (<6 Personen, keine Ranking-Punkte)
   team3: FormatStats;        // Legacy / general 3er team
   team4: FormatStats;        // Legacy / general 4er team
   stats3v3: FormatStats;     // Genau 3 vs. 3 Partien
