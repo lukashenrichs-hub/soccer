@@ -97,6 +97,22 @@ function scanBrowserStorageForMatches(): Match[] {
   return Array.from(matchesMap.values());
 }
 
+function cleanForFirestore<T extends Record<string, any>>(data: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      if (typeof val === 'string') {
+        cleaned[key] = val;
+      } else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        cleaned[key] = cleanForFirestore(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
+}
+
 function getLocalBackup(): AppData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -274,8 +290,10 @@ export function useFootballData() {
               console.log(`[Firestore] Found ${unmigrated.length} previous matches in browser. Migrating to Firestore cloud...`);
               const batch = writeBatch(db);
               for (const m of unmigrated) {
-                batch.set(doc(db, matchesPath, m.id), m);
-                cloudMatches.push(m);
+                const cleaned = cleanForFirestore(m);
+                if (cleaned.note === undefined) cleaned.note = '';
+                batch.set(doc(db, matchesPath, m.id), cleaned);
+                cloudMatches.push(cleaned as Match);
               }
               try {
                 await batch.commit();
@@ -348,6 +366,8 @@ export function useFootballData() {
         matchTimestamp = customDate.toISOString();
       }
 
+      const cleanNote = matchData.note ? matchData.note.trim() : '';
+
       const newMatch: Match = {
         id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         timestamp: matchTimestamp,
@@ -356,14 +376,14 @@ export function useFootballData() {
         participantIds: finalParticipants,
         loserIds: finalLosers,
         winnerIds,
-        note: matchData.note || undefined,
+        note: cleanNote,
         activityType: matchData.activityType || 'football',
         sportName: matchData.sportName || (isAlternative ? 'Badminton' : 'Fußball'),
       };
 
       const path = 'matches';
       try {
-        await setDoc(doc(db, path, newMatch.id), newMatch);
+        await setDoc(doc(db, path, newMatch.id), cleanForFirestore(newMatch));
       } catch (e) {
         handleFirestoreError(e, OperationType.WRITE, `${path}/${newMatch.id}`);
       }
@@ -457,20 +477,25 @@ export function useFootballData() {
       matchData.participantIds !== undefined ? matchData.participantIds : existing.participantIds;
     const winnerIds = finalParticipants.filter((pid) => !finalLosers.includes(pid));
 
+    const cleanNote =
+      matchData.note !== undefined
+        ? (matchData.note || '').trim()
+        : (existing.note || '');
+
     const updatedMatch: Match = {
       ...existing,
       participantIds: finalParticipants,
       loserIds: finalLosers,
       winnerIds,
       sessionDate: matchData.sessionDate || existing.sessionDate,
-      note: matchData.note !== undefined ? matchData.note : existing.note,
+      note: cleanNote,
       activityType: matchData.activityType || existing.activityType,
       sportName: matchData.sportName || existing.sportName,
     };
 
     const path = 'matches';
     try {
-      await setDoc(doc(db, path, id), updatedMatch, { merge: true });
+      await setDoc(doc(db, path, id), cleanForFirestore(updatedMatch), { merge: true });
       await setDoc(
         doc(db, 'metadata', 'appState'),
         { lastUpdated: new Date().toISOString() },
@@ -582,7 +607,7 @@ export function useFootballData() {
       if (Array.isArray(importedData.matches)) {
         for (const m of importedData.matches) {
           if (m && m.id) {
-            batch.set(doc(db, 'matches', m.id), m);
+            batch.set(doc(db, 'matches', m.id), cleanForFirestore(m));
           }
         }
       }
@@ -617,7 +642,7 @@ export function useFootballData() {
       if (missing.length > 0) {
         const batch = writeBatch(db);
         for (const m of missing) {
-          batch.set(doc(db, path, m.id), m);
+          batch.set(doc(db, path, m.id), cleanForFirestore(m));
         }
         await batch.commit();
       }
