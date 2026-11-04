@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "player": {
+      "title": "Player",
+      "description": "A player in the Tuesday kick group",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the player"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the player"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether the player is currently active in the squad"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "historicalStats": {
+          "type": "object",
+          "description": "Historical baseline stats prior to app tracking"
+        }
+      },
+      "required": ["id", "name", "active"]
+    },
+    "match": {
+      "title": "Match",
+      "description": "A recorded match or alternative sports attendance session",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique match ID"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when match was recorded"
+        },
+        "sessionDate": {
+          "type": "string",
+          "description": "Date of the match session (YYYY-MM-DD)"
+        },
+        "scoreTo": {
+          "type": "number",
+          "description": "Target score (10 for football, 0 for alternative)"
+        },
+        "participantIds": {
+          "type": "array",
+          "description": "List of player IDs who participated in this match"
+        },
+        "loserIds": {
+          "type": "array",
+          "description": "List of player IDs on the losing team"
+        },
+        "winnerIds": {
+          "type": "array",
+          "description": "List of player IDs on the winning team"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional notes or comments about the match"
+        },
+        "activityType": {
+          "type": "string",
+          "description": "Type of activity: football, badminton, touchtennis, other"
+        },
+        "sportName": {
+          "type": "string",
+          "description": "Display name of the sport"
+        }
+      },
+      "required": ["id", "timestamp", "sessionDate", "participantIds", "loserIds", "winnerIds"]
+    },
+    "appMeta": {
+      "title": "AppMeta",
+      "description": "Global metadata including attendees and tombstones",
+      "type": "object",
+      "properties": {
+        "historicalTotalMatches": {
+          "type": "number",
+          "description": "Total historical match baseline count (73)"
+        },
+        "activeAttendeeIds": {
+          "type": "array",
+          "description": "List of attendees present for current session"
+        },
+        "deletedMatchIds": {
+          "type": "array",
+          "description": "List of explicitly deleted match IDs to prevent tombstone resurrection"
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": "player",
+      "description": "Collection of all squad players"
+    },
+    "/matches/{matchId}": {
+      "schema": "match",
+      "description": "Collection of all matches and sessions"
+    },
+    "/metadata/{metaId}": {
+      "schema": "appMeta",
+      "description": "Application metadata and configuration document"
+    }
+  }
+}

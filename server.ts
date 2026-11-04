@@ -10,6 +10,7 @@ app.use(express.json());
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'football-stats.json');
+const DATA_BACKUP_FILE = path.join(DATA_DIR, 'football-stats.backup.json');
 
 const INITIAL_PLAYERS = [
   'Max',
@@ -101,13 +102,37 @@ function loadData(): AppData {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    if (!fs.existsSync(DATA_FILE)) {
+
+    let parsed: AppData | null = null;
+
+    if (fs.existsSync(DATA_FILE)) {
+      try {
+        const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    // If primary file is missing or has 0 matches, check if secondary backup file exists with matches
+    if ((!parsed || !Array.isArray(parsed.matches) || parsed.matches.length === 0) && fs.existsSync(DATA_BACKUP_FILE)) {
+      try {
+        const backupRaw = fs.readFileSync(DATA_BACKUP_FILE, 'utf-8');
+        const backupParsed: AppData = JSON.parse(backupRaw);
+        if (backupParsed && Array.isArray(backupParsed.matches) && backupParsed.matches.length > 0) {
+          console.log(`[Recovery] Restored ${backupParsed.matches.length} matches from secondary backup file.`);
+          parsed = backupParsed;
+        }
+      } catch (backupErr) {
+        console.error('Error reading backup file:', backupErr);
+      }
+    }
+
+    if (!parsed) {
       const initial = getInitialData();
-      fs.writeFileSync(DATA_FILE, JSON.stringify(initial, null, 2), 'utf-8');
+      saveData(initial);
       return initial;
     }
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    const parsed: AppData = JSON.parse(raw);
 
     // Merge baseline historical stats for players if missing
     let changed = false;
@@ -155,7 +180,15 @@ function saveData(data: AppData): void {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     data.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    const serialized = JSON.stringify(data, null, 2);
+    fs.writeFileSync(DATA_FILE, serialized, 'utf-8');
+
+    // Also persist to secondary backup snapshot whenever matches exist or state updates
+    try {
+      fs.writeFileSync(DATA_BACKUP_FILE, serialized, 'utf-8');
+    } catch {
+      // ignore backup write errors
+    }
   } catch (err) {
     console.error('Error saving data:', err);
   }
