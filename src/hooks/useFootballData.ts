@@ -8,7 +8,7 @@ import {
   onSnapshot,
   writeBatch,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, firebaseConfigError, handleFirestoreError, OperationType } from '../firebase';
 import { ActivityType, AppData, Match, Player } from '../types';
 
 const STORAGE_KEY = 'vtv_state_cache_v3';
@@ -57,44 +57,54 @@ function getInitialPlayers(): Player[] {
 }
 
 /**
- * Universal Scanner: Scans local storage for any match objects
- * so existing browser data can be migrated into Firestore.
+ * Cleans up legacy and temporary storage keys so stale test records from earlier
+ * browser sessions can never resurrect or duplicate matches.
  */
-function scanBrowserStorageForMatches(): Match[] {
-  const matchesMap = new Map<string, Match>();
-  if (typeof window === 'undefined' || !window.localStorage) return [];
-
+function cleanLegacyBrowserStorage() {
+  if (typeof window === 'undefined' || !window.localStorage) return;
   try {
+    localStorage.removeItem(VAULT_KEY);
+    const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (!key) continue;
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw || raw.length < 15) continue;
-        const parsed = JSON.parse(raw);
-
-        if (parsed && Array.isArray(parsed.matches)) {
-          for (const m of parsed.matches) {
-            if (m && m.id && Array.isArray(m.loserIds)) {
-              matchesMap.set(m.id, m);
-            }
-          }
-        } else if (Array.isArray(parsed)) {
-          for (const m of parsed) {
-            if (m && m.id && Array.isArray(m.loserIds)) {
-              matchesMap.set(m.id, m);
-            }
-          }
-        }
-      } catch {
-        // Skip unparseable keys
+      const k = localStorage.key(i);
+      if (k && k !== STORAGE_KEY && (k.startsWith('vtv_') || k.includes('matches_backup'))) {
+        keysToRemove.push(k);
       }
     }
-  } catch (err) {
-    console.error('[Vault] Error scanning browser storage:', err);
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // ignore
   }
+}
 
-  return Array.from(matchesMap.values());
+/**
+ * Builds a canonical signature for a match based on its real-world traits.
+ * Two matches with the exact same date, sport, participants, and losers are duplicate records.
+ */
+export function buildMatchSignature(m: Partial<Match>): string {
+  const p = Array.isArray(m.participantIds) ? [...m.participantIds].sort().join(',') : '';
+  const l = Array.isArray(m.loserIds) ? [...m.loserIds].sort().join(',') : '';
+  const sport = m.activityType || 'football';
+  const date = m.sessionDate || (m.timestamp ? m.timestamp.split('T')[0] : '');
+  return `${date}_${sport}_${p}_${l}`;
+}
+
+function cleanForFirestore<T extends Record<string, any>>(data: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (val !== undefined) {
+      if (typeof val === 'string') {
+        cleaned[key] = val;
+      } else if (Array.isArray(val)) {
+        cleaned[key] = val.filter((item) => item !== undefined);
+      } else if (typeof val === 'object' && val !== null) {
+        cleaned[key] = cleanForFirestore(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
 }
 
 function getLocalBackup(): AppData {
@@ -182,7 +192,14 @@ export function useFootballData() {
     let unsubscribeMetadata: (() => void) | undefined;
 
     const setupFirestoreSync = async () => {
+      if (firebaseConfigError) {
+        setError(firebaseConfigError);
+        setLoading(false);
+        return;
+      }
       try {
+        cleanLegacyBrowserStorage();
+
         // 1. Players Real-Time Listener
         const playersPath = 'players';
         unsubscribePlayers = onSnapshot(
@@ -193,7 +210,7 @@ export function useFootballData() {
               const initial = getInitialPlayers();
               const batch = writeBatch(db);
               for (const p of initial) {
-                batch.set(doc(db, playersPath, p.id), p);
+                batch.set(doc(db, playersPath, p.id), cleanForFirestore(p));
               }
               try {
                 await batch.commit();
@@ -256,33 +273,14 @@ export function useFootballData() {
         const matchesPath = 'matches';
         unsubscribeMatches = onSnapshot(
           collection(db, matchesPath),
-          async (snapshot) => {
+          (snapshot) => {
             const cloudMatches: Match[] = [];
             snapshot.forEach((docSnap) => {
               cloudMatches.push(docSnap.data() as Match);
             });
 
-            // Check if client has local browser matches that were not yet uploaded to Firestore
-            const cloudMatchIds = new Set(cloudMatches.map((m) => m.id));
-            const localScanned = scanBrowserStorageForMatches();
-            const deletedSet = new Set(metadataRef.current.deletedMatchIds);
-            const unmigrated = localScanned.filter(
-              (m) => !cloudMatchIds.has(m.id) && !deletedSet.has(m.id)
-            );
-
-            if (unmigrated.length > 0) {
-              console.log(`[Firestore] Found ${unmigrated.length} previous matches in browser. Migrating to Firestore cloud...`);
-              const batch = writeBatch(db);
-              for (const m of unmigrated) {
-                batch.set(doc(db, matchesPath, m.id), m);
-                cloudMatches.push(m);
-              }
-              try {
-                await batch.commit();
-              } catch (migrateErr) {
-                handleFirestoreError(migrateErr, OperationType.WRITE, matchesPath);
-              }
-            }
+            // Sort newest first by timestamp
+            cloudMatches.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
             matchesRef.current = cloudMatches;
             updateCompositeData();
@@ -348,6 +346,27 @@ export function useFootballData() {
         matchTimestamp = customDate.toISOString();
       }
 
+      const cleanNote = matchData.note ? matchData.note.trim() : '';
+
+      // Double-tap Guard (prevent accidental identical duplicate within 30 seconds)
+      const candidateMatch: Partial<Match> = {
+        sessionDate: dateStr,
+        activityType: matchData.activityType || 'football',
+        participantIds: finalParticipants,
+        loserIds: finalLosers,
+      };
+      const candidateSig = buildMatchSignature(candidateMatch);
+      const nowMs = Date.now();
+      const recentDuplicate = matchesRef.current.find((m) => {
+        if (buildMatchSignature(m) !== candidateSig) return false;
+        const mTime = new Date(m.timestamp).getTime();
+        return Number.isFinite(mTime) && Math.abs(nowMs - mTime) < 30000;
+      });
+      if (recentDuplicate) {
+        console.warn('[Firestore] Duplicate submission within 30s prevented.');
+        return recentDuplicate;
+      }
+
       const newMatch: Match = {
         id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         timestamp: matchTimestamp,
@@ -356,14 +375,14 @@ export function useFootballData() {
         participantIds: finalParticipants,
         loserIds: finalLosers,
         winnerIds,
-        note: matchData.note || undefined,
+        note: cleanNote,
         activityType: matchData.activityType || 'football',
         sportName: matchData.sportName || (isAlternative ? 'Badminton' : 'Fußball'),
       };
 
       const path = 'matches';
       try {
-        await setDoc(doc(db, path, newMatch.id), newMatch);
+        await setDoc(doc(db, path, newMatch.id), cleanForFirestore(newMatch));
       } catch (e) {
         handleFirestoreError(e, OperationType.WRITE, `${path}/${newMatch.id}`);
       }
@@ -457,20 +476,25 @@ export function useFootballData() {
       matchData.participantIds !== undefined ? matchData.participantIds : existing.participantIds;
     const winnerIds = finalParticipants.filter((pid) => !finalLosers.includes(pid));
 
+    const cleanNote =
+      matchData.note !== undefined
+        ? (matchData.note || '').trim()
+        : (existing.note || '');
+
     const updatedMatch: Match = {
       ...existing,
       participantIds: finalParticipants,
       loserIds: finalLosers,
       winnerIds,
       sessionDate: matchData.sessionDate || existing.sessionDate,
-      note: matchData.note !== undefined ? matchData.note : existing.note,
+      note: cleanNote,
       activityType: matchData.activityType || existing.activityType,
       sportName: matchData.sportName || existing.sportName,
     };
 
     const path = 'matches';
     try {
-      await setDoc(doc(db, path, id), updatedMatch, { merge: true });
+      await setDoc(doc(db, path, id), cleanForFirestore(updatedMatch), { merge: true });
       await setDoc(
         doc(db, 'metadata', 'appState'),
         { lastUpdated: new Date().toISOString() },
@@ -512,7 +536,7 @@ export function useFootballData() {
 
     const path = 'players';
     try {
-      await setDoc(doc(db, path, newPlayer.id), newPlayer);
+      await setDoc(doc(db, path, newPlayer.id), cleanForFirestore(newPlayer));
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `${path}/${newPlayer.id}`);
     }
@@ -544,7 +568,7 @@ export function useFootballData() {
 
       const initial = getInitialPlayers();
       for (const p of initial) {
-        batch2.set(doc(db, 'players', p.id), p);
+        batch2.set(doc(db, 'players', p.id), cleanForFirestore(p));
       }
       await batch2.commit();
 
@@ -574,7 +598,7 @@ export function useFootballData() {
       if (Array.isArray(importedData.players)) {
         for (const p of importedData.players) {
           if (p && p.id) {
-            batch.set(doc(db, 'players', p.id), p);
+            batch.set(doc(db, 'players', p.id), cleanForFirestore(p));
           }
         }
       }
@@ -582,7 +606,7 @@ export function useFootballData() {
       if (Array.isArray(importedData.matches)) {
         for (const m of importedData.matches) {
           if (m && m.id) {
-            batch.set(doc(db, 'matches', m.id), m);
+            batch.set(doc(db, 'matches', m.id), cleanForFirestore(m));
           }
         }
       }
@@ -604,26 +628,39 @@ export function useFootballData() {
     }
   };
 
-  // Emergency Scan: scans browser storage and uploads all recovered matches to Firestore cloud
+  // Cache cleanup & server deduplication
   const emergencyScanAndRestore = async () => {
-    const scanned = scanBrowserStorageForMatches();
-    if (scanned.length > 0) {
-      const path = 'matches';
-      const snap = await getDocs(collection(db, path));
-      const existingIds = new Set<string>();
-      snap.forEach((d) => existingIds.add(d.id));
+    cleanLegacyBrowserStorage();
+    const path = 'matches';
+    const snap = await getDocs(collection(db, path));
+    const seenSignatures = new Map<string, string>();
+    const dupIds: string[] = [];
 
-      const missing = scanned.filter((m) => !existingIds.has(m.id));
-      if (missing.length > 0) {
-        const batch = writeBatch(db);
-        for (const m of missing) {
-          batch.set(doc(db, path, m.id), m);
-        }
-        await batch.commit();
+    snap.docs.forEach((d) => {
+      const m = d.data() as Match;
+      const sig = buildMatchSignature(m);
+      if (seenSignatures.has(sig)) {
+        dupIds.push(d.id);
+      } else {
+        seenSignatures.set(sig, d.id);
       }
-      return missing.length;
+    });
+
+    if (dupIds.length > 0) {
+      for (const id of dupIds) {
+        await deleteDoc(doc(db, path, id)).catch(() => {});
+      }
     }
-    return 0;
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(VAULT_KEY);
+    } catch {
+      // ignore
+    }
+
+    updateCompositeData();
+    return dupIds.length;
   };
 
   const forceSync = async (_silent?: boolean) => {

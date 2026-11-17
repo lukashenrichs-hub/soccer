@@ -39,14 +39,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     try {
       setRestoringEmergency(true);
       setRestoreMessage(null);
-      const recoveredCount = await onEmergencyScanAndRestore();
-      if (recoveredCount > 0) {
-        setRestoreMessage(`🎉 ${recoveredCount} Spiel(e) erfolgreich im Browser-Speicher gefunden und wiederhergestellt!`);
+      const prunedCount = await onEmergencyScanAndRestore();
+      if (prunedCount > 0) {
+        setRestoreMessage(`✅ Lokaler Cache geleert und ${prunedCount} Duplikat(e) erfolgreich aus der Cloud bereinigt!`);
       } else {
-        setRestoreMessage('Keine ungesicherten Spiele im Browser-Speicher dieses Geräts gefunden.');
+        setRestoreMessage('✅ Lokaler Cache geleert. Datenbestand ist 1:1 sauber mit Google Cloud synchronisiert.');
       }
     } catch {
-      setRestoreMessage('Fehler bei der Wiederherstellung.');
+      setRestoreMessage('Fehler beim Abgleich mit der Cloud.');
     } finally {
       setRestoringEmergency(false);
     }
@@ -177,9 +177,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               <Share2 className="w-3.5 h-3.5" />
               <span>TEILEN, WHATSAPP & BACKUP</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white">
-              Teilen & Verwaltung
-            </h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                <span>Teilen & Verwaltung</span>
+                <span className="text-[10px] font-mono bg-emerald-950/90 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded-md">
+                  v2.5-live
+                </span>
+              </h2>
             <p className="text-xs text-slate-400 mt-1">
               Link für Mitspieler teilen, WhatsApp-Tabelle kopieren oder Admin-Backups ziehen.
             </p>
@@ -332,7 +335,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       className="px-3 py-2 text-xs font-semibold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 rounded-xl border border-emerald-600/70 flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${restoringEmergency ? 'animate-spin' : ''}`} />
-                      <span>{restoringEmergency ? 'Synchronisiere...' : '🔄 Cache leeren & Server-Stand erzwingen'}</span>
+                      <span>{restoringEmergency ? 'Synchronisiere...' : '🔄 Cache leeren & Cloud-Stand synchronisieren'}</span>
                     </button>
                   )}
                 </div>

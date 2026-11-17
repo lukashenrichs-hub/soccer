@@ -59,6 +59,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
   const [note, setNote] = useState('');
   const [sessionDate, setSessionDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const prevIsOpenRef = useRef(false);
 
@@ -167,6 +168,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSubmittingRef.current) return;
 
     // Mode-specific validation
     if (entryMode === 'football') {
@@ -195,6 +197,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
     }
 
     try {
+      isSubmittingRef.current = true;
       setIsSubmitting(true);
       setErrorMsg(null);
 
@@ -207,7 +210,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           participantIds: participants,
           loserIds: isAlt ? [] : losers,
           sessionDate,
-          note: note.trim() || undefined,
+          note: note.trim(),
           activityType: finalActivityType,
           sportName: finalSportName,
         });
@@ -216,7 +219,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
           participantIds: participants,
           loserIds: isAlt ? [] : losers,
           sessionDate,
-          note: note.trim() || undefined,
+          note: note.trim(),
           activityType: finalActivityType,
           sportName: finalSportName,
         });
@@ -230,6 +233,7 @@ export const QuickMatchModal: React.FC<QuickMatchModalProps> = ({
     } catch (err: any) {
       setErrorMsg(err.message || 'Fehler beim Speichern.');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

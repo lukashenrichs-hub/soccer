@@ -2,7 +2,7 @@ import os
 import time
 import zipfile
 
-EXCLUDE_DIRS = {'node_modules', '.git', 'dist', '.aistudio', '__pycache__', '.vite'}
+EXCLUDE_DIRS = {'node_modules', '.git', 'dist', '.aistudio', '__pycache__', '.vite', 'data'}
 EXCLUDE_FILES = {'bun.lock', '.DS_Store', 'vtv-dienstagskick.zip', 'test-download.zip'}
 
 def create_windows_compatible_zip(output_path):
@@ -35,9 +35,9 @@ def create_windows_compatible_zip(output_path):
                     zipf.writestr(zinfo, b'')
 
             for file in files:
-                if file in EXCLUDE_FILES or file.endswith('.zip') or file.startswith('.'):
-                    # Keep .gitignore and .env.example
-                    if file not in {'.gitignore', '.env.example'}:
+                if file in EXCLUDE_FILES or file.endswith('.zip') or file.startswith('Screenshot_') or file.startswith('.'):
+                    # Keep .gitignore, .env.example, and .node-version
+                    if file not in {'.gitignore', '.env.example', '.node-version'}:
                         continue
 
                 file_path = os.path.join(root, file)

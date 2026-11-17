@@ -155,6 +155,16 @@ export default function App() {
 
       {/* Main Content Canvas */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 flex-1 w-full">
+        {error && (
+          <div className="mb-4 p-4 bg-rose-950/90 border border-rose-600/80 rounded-2xl text-rose-100 text-xs sm:text-sm flex items-start gap-3 shadow-lg">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold text-rose-200">Datenbank-Hinweis</div>
+              <div className="mt-0.5">{error}</div>
+            </div>
+          </div>
+        )}
+
         {/* Toast Banner */}
         {saveSuccessToast && (
           <div className="fixed top-20 right-4 sm:right-6 z-50 p-4 bg-emerald-950 border border-emerald-500 rounded-2xl shadow-2xl text-emerald-200 text-xs sm:text-sm font-semibold flex items-center gap-3 animate-in fade-in slide-in-from-top-2">

@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
+import zlib from 'zlib';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -457,31 +458,179 @@ app.post('/api/import', requireAdminPin, (req, res) => {
   res.json({ success: true, state: appData });
 });
 
+const ZIP_EXCLUDE_DIRS = new Set(['node_modules', '.git', 'dist', '.aistudio', '__pycache__', '.vite', 'data']);
+const ZIP_EXCLUDE_FILES = new Set(['bun.lock', '.DS_Store', 'vtv-dienstagskick.zip', 'test-download.zip']);
+const ZIP_ALLOW_DOTFILES = new Set(['.gitignore', '.env.example', '.node-version']);
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) !== 0 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC32_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function encodeDosDateTime(date: Date): { dosTime: number; dosDate: number } {
+  const year = Math.max(1980, date.getFullYear());
+  const dosTime =
+    ((date.getHours() & 0x1f) << 11) |
+    ((date.getMinutes() & 0x3f) << 5) |
+    ((date.getSeconds() >> 1) & 0x1f);
+  const dosDate =
+    (((year - 1980) & 0x7f) << 9) |
+    (((date.getMonth() + 1) & 0x0f) << 5) |
+    (date.getDate() & 0x1f);
+  return { dosTime, dosDate };
+}
+
+function buildLiveProjectZip(rootDir: string): Buffer {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  const addedDirs = new Set<string>();
+  let offset = 0;
+  let entryCount = 0;
+
+  const addEntry = (entryName: string, data: Buffer, isDir: boolean, mtime: Date) => {
+    const nameBuf = Buffer.from(entryName, 'utf-8');
+    const { dosTime, dosDate } = encodeDosDateTime(mtime);
+    const uncompressedSize = data.length;
+    const crc = isDir ? 0 : crc32(data);
+    const compressed = isDir ? Buffer.alloc(0) : zlib.deflateRawSync(data, { level: 9 });
+    const method = isDir ? 0 : 8;
+    const extAttr = isDir ? (0x10 | (0o755 << 16)) >>> 0 : (0x20 | (0o644 << 16)) >>> 0;
+    const flags = 0x0800; // UTF-8 filename
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(flags, 6);
+    localHeader.writeUInt16LE(method, 8);
+    localHeader.writeUInt16LE(dosTime, 10);
+    localHeader.writeUInt16LE(dosDate, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(compressed.length, 18);
+    localHeader.writeUInt32LE(uncompressedSize, 22);
+    localHeader.writeUInt16LE(nameBuf.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE((3 << 8) | 20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(flags, 8);
+    centralHeader.writeUInt16LE(method, 10);
+    centralHeader.writeUInt16LE(dosTime, 12);
+    centralHeader.writeUInt16LE(dosDate, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(compressed.length, 20);
+    centralHeader.writeUInt32LE(uncompressedSize, 24);
+    centralHeader.writeUInt16LE(nameBuf.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(extAttr, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+
+    localParts.push(localHeader, nameBuf, compressed);
+    centralParts.push(centralHeader, nameBuf);
+    offset += localHeader.length + nameBuf.length + compressed.length;
+    entryCount++;
+  };
+
+  const walk = (dir: string) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (ZIP_EXCLUDE_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
+        const fullDir = path.join(dir, entry.name);
+        const relDir = path.relative(rootDir, fullDir).replace(/\\/g, '/') + '/';
+        if (!addedDirs.has(relDir)) {
+          addedDirs.add(relDir);
+          addEntry(relDir, Buffer.alloc(0), true, fs.statSync(fullDir).mtime);
+        }
+        walk(fullDir);
+      } else if (entry.isFile()) {
+        if (
+          ZIP_EXCLUDE_FILES.has(entry.name) ||
+          entry.name.endsWith('.zip') ||
+          entry.name.startsWith('Screenshot_') ||
+          (entry.name.startsWith('.') && !ZIP_ALLOW_DOTFILES.has(entry.name))
+        ) {
+          continue;
+        }
+        const fullFile = path.join(dir, entry.name);
+        const relFile = path.relative(rootDir, fullFile).replace(/\\/g, '/');
+        const stat = fs.statSync(fullFile);
+        const content = fs.readFileSync(fullFile);
+        addEntry(relFile, content, false, stat.mtime);
+      }
+    }
+  };
+
+  walk(rootDir);
+
+  const centralDirBuf = Buffer.concat(centralParts);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(entryCount, 8);
+  eocd.writeUInt16LE(entryCount, 10);
+  eocd.writeUInt32LE(centralDirBuf.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  eocd.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDirBuf, eocd]);
+}
+
 app.get('/download-zip', (_req, res) => {
-  const zipPath = path.resolve(process.cwd(), 'public/vtv-dienstagskick.zip');
-  if (fs.existsSync(zipPath)) {
-    const stat = fs.statSync(zipPath);
+  try {
+    const zipBuffer = buildLiveProjectZip(process.cwd());
     res.writeHead(200, {
       'Content-Type': 'application/zip',
       'Content-Disposition': 'attachment; filename="vtv-freier-grund-kick.zip"',
-      'Content-Length': stat.size,
+      'Content-Length': zipBuffer.length,
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       'Pragma': 'no-cache',
     });
-    fs.createReadStream(zipPath).pipe(res);
-  } else {
-    res.status(404).send('ZIP file not found.');
+    res.end(zipBuffer);
+  } catch (err) {
+    console.error('Failed to generate live ZIP:', err);
+    res.status(500).send('Fehler beim Erstellen der Projekt-ZIP.');
   }
 });
 
 // Setup Vite middleware in dev or static server in prod
 async function startServer() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const distHtml = path.resolve(process.cwd(), 'dist/index.html');
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+  const distDir = path.resolve(process.cwd(), 'dist');
+  const distHtml = path.join(distDir, 'index.html');
 
   if (isProduction && fs.existsSync(distHtml)) {
-    app.use(express.static(path.resolve(process.cwd(), 'dist')));
+    app.use(
+      express.static(distDir, {
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+          }
+        },
+      })
+    );
     app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.sendFile(distHtml);
     });
   } else {
